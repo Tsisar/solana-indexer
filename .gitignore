@@ -1,0 +1,26 @@
+# Binaries for programs and plugins
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Test binaries and build output
+*.test
+*.out
+
+# Dependency directories (if using vendoring)
+vendor/
+
+# Build directories
+bin/
+pkg/
+
+# Environment files
+.env
+.env.*
+
+# IDE and editor settings
+.idea/
+.vscode/
+*.swp
