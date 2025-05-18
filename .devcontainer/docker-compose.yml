@@ -1,0 +1,52 @@
+services:
+  postgres:
+    image: postgres:15
+    ports:
+      - "5432:5432"
+    command:
+    -  "postgres"
+    -  "-cshared_preload_libraries=pg_stat_statements"
+    #-  "-clog_statement=all"
+    environment:
+      POSTGRES_USER: indexer
+      POSTGRES_PASSWORD: mysecretpassword
+      POSTGRES_DB: solana-indexer
+      POSTGRES_INITDB_ARGS: "-E UTF8 --locale=C"
+      POSTGRES_HOST_AUTH_METHOD: md5
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD", "pg_isready"]
+      interval: 30s
+      timeout: 10s
+      retries: 15
+
+  pgweb:
+    image: sosedoff/pgweb:0.11.12
+    ports:
+      - "8081:8081"
+    restart: on-failure
+    command: ["pgweb", "--bind=0.0.0.0", "--listen=8081", "--binary-codec=hex"]
+    environment:
+      - DATABASE_URL=postgres://indexer:mysecretpassword@postgres:5432/solana-indexer?sslmode=disable
+    depends_on:
+      - postgres
+    healthcheck:
+      test: ["CMD", "true"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  hasura:
+    image: hasura/graphql-engine:v2.36.12
+    ports:
+      - "8080:8080"
+    depends_on:
+      - postgres
+    environment:
+      HASURA_GRAPHQL_DATABASE_URL: postgres://indexer:mysecretpassword@postgres:5432/solana-indexer
+      HASURA_GRAPHQL_ENABLE_CONSOLE: "true"
+      HASURA_GRAPHQL_ADMIN_SECRET: admin
+
+volumes:
+  postgres-data:

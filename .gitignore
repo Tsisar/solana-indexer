@@ -24,3 +24,5 @@ pkg/
 .idea/
 .vscode/
 *.swp
+
+data/
