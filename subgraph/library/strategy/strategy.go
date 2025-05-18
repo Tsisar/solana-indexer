@@ -16,9 +16,9 @@ func Init(ctx context.Context, db *gorm.DB, ev events.StrategyInitEvent) error {
 	}
 
 	strategy.StrategyType = ev.StrategyType
-	strategy.DepositLimit = ev.DepositLimit.String()
-	strategy.DepositPeriodEnds = ev.DepositPeriodEnds.String()
-	strategy.LockPeriodEnds = ev.LockPeriodEnds.String()
+	strategy.DepositLimit = ev.DepositLimit
+	strategy.DepositPeriodEnds = ev.DepositPeriodEnds
+	strategy.LockPeriodEnds = ev.LockPeriodEnds
 	strategy.VaultID = ev.Vault.String()
 	strategy.Removed = false
 

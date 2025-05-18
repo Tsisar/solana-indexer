@@ -116,21 +116,21 @@ func subgraphType(raw json.RawMessage) (string, error) {
 		case "pubkey":
 			return "solana.PublicKey", nil
 		case "u8":
-			return "big.Int", nil
+			return "types.BigInt", nil
 		case "i8":
-			return "big.Int", nil
+			return "types.BigInt", nil
 		case "u16":
-			return "big.Int", nil
+			return "types.BigInt", nil
 		case "i16":
-			return "big.Int", nil
+			return "types.BigInt", nil
 		case "u32":
-			return "big.Int", nil
+			return "types.BigInt", nil
 		case "i32":
-			return "big.Int", nil
+			return "types.BigInt", nil
 		case "u64":
-			return "big.Int", nil
+			return "types.BigInt", nil
 		case "i64":
-			return "big.Int", nil
+			return "types.BigInt", nil
 		case "bool":
 			return "bool", nil
 		case "string":

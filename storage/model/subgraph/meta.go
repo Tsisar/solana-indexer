@@ -10,12 +10,12 @@ import (
 type BlockInfo struct {
 	ID         uint   `gorm:"primaryKey;column:id"`
 	Hash       string `gorm:"column:hash"`
-	Number     string `gorm:"column:number"`
+	Number     uint64 `gorm:"column:number"`
 	ParentHash string `gorm:"column:parent_hash"`
-	Timestamp  string `gorm:"column:timestamp"`
+	Timestamp  int64  `gorm:"column:timestamp"`
 }
 
-func (*BlockInfo) TableName() string {
+func (BlockInfo) TableName() string {
 	return "_block_info"
 }
 

@@ -3,21 +3,22 @@ package subgraph
 import (
 	"context"
 	"errors"
+	"github.com/Tsisar/solana-indexer/subgraph/types"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )
 
 type StrategyReportEvent struct {
-	ID              string    `gorm:"primaryKey;column:id"`          // The Strategy Report ID
-	Timestamp       string    `gorm:"column:timestamp;default:0"`    // Timestamp the strategy report was most recently updated (BigInt)
-	BlockNumber     string    `gorm:"column:block_number;default:0"` // Blocknumber the strategy report was most recently updated (BigInt)
-	TransactionHash string    `gorm:"column:transaction_hash"`       // Transaction Hash
-	Strategy        *Strategy `gorm:"foreignKey:StrategyID"`         // The Strategy reference
-	StrategyID      string    `gorm:"column:strategy_id"`            // Strategy ID
-	SharePrice      string    `gorm:"column:share_price;default:0"`  // Share price (BigInt)
+	ID              string       `gorm:"primaryKey;column:id"`          // The Strategy Report ID
+	Timestamp       types.BigInt `gorm:"column:timestamp;default:0"`    // Timestamp the strategy report was most recently updated (BigInt)
+	BlockNumber     types.BigInt `gorm:"column:block_number;default:0"` // Blocknumber the strategy report was most recently updated (BigInt)
+	TransactionHash string       `gorm:"column:transaction_hash"`       // Transaction Hash
+	Strategy        *Strategy    `gorm:"foreignKey:StrategyID"`         // The Strategy reference
+	StrategyID      string       `gorm:"column:strategy_id"`            // Strategy ID
+	SharePrice      types.BigInt `gorm:"column:share_price;default:0"`  // Share price (BigInt)
 }
 
-func (*StrategyReportEvent) TableName() string {
+func (StrategyReportEvent) TableName() string {
 	return "strategy_report_events"
 }
 
