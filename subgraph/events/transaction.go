@@ -1,9 +1,11 @@
 package events
 
-import "math/big"
+import (
+	"github.com/Tsisar/solana-indexer/subgraph/types"
+)
 
 type Transaction struct {
 	Signature string
-	Slot      *big.Int
-	Timestamp *big.Int
+	Slot      types.BigInt
+	Timestamp types.BigInt
 }

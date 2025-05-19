@@ -3,30 +3,58 @@ package utils
 import (
 	"crypto/sha256"
 	"encoding/hex"
-	"fmt"
-	coremodel "github.com/Tsisar/solana-indexer/storage/model/core"
+	"github.com/Tsisar/solana-indexer/subgraph/types"
 	"math/big"
 )
 
-const msPerDay = 86_400_000
+var msPerDay = big.NewInt(86_400_000) // 24*60*60*1000
+var daysPerYear = big.NewFloat(365.0)
 
-func GenerateId(event coremodel.Event) string {
+// GenerateId creates a SHA-256 hash from all input strings concatenated in order.
+// Returns the result as a hex-encoded string.
+func GenerateId(parts ...string) string {
 	hasher := sha256.New()
-	hasher.Write([]byte(event.TransactionSignature))
-	hasher.Write([]byte(event.JsonEv))
+	for _, s := range parts {
+		hasher.Write([]byte(s))
+	}
 	sum := hasher.Sum(nil)
 	return hex.EncodeToString(sum)
 }
 
-func MillisToDays(durationMs int64) float64 {
-	return float64(durationMs) / float64(msPerDay)
+// MillisToDays converts duration in milliseconds to number of days as *types.BigDecimal.
+func MillisToDays(durationMs *types.BigInt) *types.BigDecimal {
+	if durationMs == nil || durationMs.Int == nil {
+		return &types.BigDecimal{Float: nil}
+	}
+
+	ms := new(big.Float).SetInt(durationMs.Int)
+	day := new(big.Float).SetInt(msPerDay)
+
+	result := new(big.Float).Quo(ms, day)
+	return &types.BigDecimal{Float: result}
 }
 
-func ParseBigIntFromString(s string) (*big.Int, error) {
-	n := new(big.Int)
-	n, ok := n.SetString(s, 10)
-	if !ok {
-		return nil, fmt.Errorf("invalid big.Int string: %s", s)
+// DaysToYearFactor computes 365 / durationInDays (BigDecimal)
+func DaysToYearFactor(durationInDays *types.BigDecimal) *types.BigDecimal {
+	if durationInDays == nil || durationInDays.Float == nil {
+		return &types.BigDecimal{Float: nil}
 	}
-	return n, nil
+
+	return &types.BigDecimal{
+		Float: new(big.Float).Quo(daysPerYear, durationInDays.Float),
+	}
+}
+
+func FormatBigDecimal(b *types.BigDecimal, prec int) string {
+	if b == nil || b.Float == nil {
+		return "nil"
+	}
+	return b.Float.Text('f', prec)
+}
+
+func FormatBigInt(b *types.BigInt) string {
+	if b == nil || b.Int == nil {
+		return "nil"
+	}
+	return b.Int.String()
 }

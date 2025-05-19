@@ -7,9 +7,10 @@ import (
 	"github.com/Tsisar/extended-log-go/log"
 	"github.com/Tsisar/solana-indexer/storage/model/core"
 	"github.com/Tsisar/solana-indexer/subgraph/events"
+	"github.com/Tsisar/solana-indexer/subgraph/library/report"
 	"github.com/Tsisar/solana-indexer/subgraph/library/vault"
+	"github.com/Tsisar/solana-indexer/subgraph/types"
 	"gorm.io/gorm"
-	"math/big"
 )
 
 func mapStrategyReportedEvent(ctx context.Context, db *gorm.DB, event core.Event) error {
@@ -18,7 +19,29 @@ func mapStrategyReportedEvent(ctx context.Context, db *gorm.DB, event core.Event
 	if err := json.Unmarshal(event.JsonEv, &ev); err != nil {
 		return fmt.Errorf("failed to decode StrategyReportedEvent: %w", err)
 	}
-	// TODO: implement mapping logic
+
+	transaction := events.Transaction{
+		Signature: event.TransactionSignature,
+		Slot:      *types.BigIntFromUint64(event.Slot),
+		Timestamp: *types.BigIntFromInt64(event.BlockTime),
+	}
+
+	if err := report.CreateReport(ctx, db, ev, transaction); err != nil {
+		return fmt.Errorf("failed to create report: %w", err)
+	}
+
+	if err := report.CreateReportEvent(ctx, db, ev, transaction); err != nil {
+		return fmt.Errorf("failed to create report event: %w", err)
+	}
+
+	if err := report.CreateShareTokenData(ctx, db, ev, transaction); err != nil {
+		return fmt.Errorf("failed to create share token data: %w", err)
+	}
+
+	if err := report.UpdateCurrentSharePrice(ctx, db, ev); err != nil {
+		return fmt.Errorf("failed to update current share price: %w", err)
+	}
+
 	return nil
 }
 
@@ -41,8 +64,8 @@ func mapVaultAddStrategyEvent(ctx context.Context, db *gorm.DB, event core.Event
 
 	transaction := events.Transaction{
 		Signature: event.TransactionSignature,
-		Slot:      new(big.Int).SetUint64(event.Slot),
-		Timestamp: new(big.Int).SetInt64(event.BlockTime),
+		Slot:      *types.BigIntFromUint64(event.Slot),
+		Timestamp: *types.BigIntFromInt64(event.BlockTime),
 	}
 
 	if err := vault.AddStrategy(ctx, db, ev, transaction); err != nil {
@@ -80,8 +103,8 @@ func mapVaultInitEvent(ctx context.Context, db *gorm.DB, event core.Event) error
 
 	transaction := events.Transaction{
 		Signature: event.TransactionSignature,
-		Slot:      new(big.Int).SetUint64(event.Slot),
-		Timestamp: new(big.Int).SetInt64(event.BlockTime),
+		Slot:      *types.BigIntFromUint64(event.Slot),
+		Timestamp: *types.BigIntFromInt64(event.BlockTime),
 	}
 
 	if err := vault.Init(ctx, db, ev, transaction); err != nil {

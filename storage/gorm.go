@@ -76,6 +76,10 @@ func InitCoreModels(ctx context.Context, db *Gorm) error {
 // InitSubgraphModels runs migrations for subgraph-specific models.
 // It also creates and validates the `latest_report_id` foreign key.
 func InitSubgraphModels(ctx context.Context, db *Gorm) error {
+	if err := truncateSubgraphTables(db.DB); err != nil {
+		return fmt.Errorf("failed to truncate subgraph tables: %w", err)
+	}
+
 	if err := db.DB.AutoMigrate(
 		&subgraph.Meta{},
 		&subgraph.BlockInfo{},
@@ -110,6 +114,45 @@ func InitSubgraphModels(ctx context.Context, db *Gorm) error {
 	if err := migrateWithLatestReport(db.DB); err != nil {
 		return fmt.Errorf("migration latest_report_id failed: %w", err)
 	}
+	return nil
+}
+
+func truncateSubgraphTables(db *gorm.DB) error {
+	tables := []string{
+		"_meta",
+		"_block_info",
+		"accounts",
+		"account_vault_positions",
+		"accountants",
+		"deposits",
+		"deploy_funds",
+		"dtf_reports",
+		"free_funds",
+		"share_tokens",
+		"share_token_data",
+		"share_token_transfers",
+		"strategies",
+		"strategy_historical_aprs",
+		"strategy_reports",
+		"strategy_report_events",
+		"strategy_report_results",
+		"tokens",
+		"token_burns",
+		"token_mints",
+		"token_stats",
+		"token_wallets",
+		"vaults",
+		"vault_historical_aprs",
+		"withdrawals",
+		"withdrawal_requests",
+	}
+
+	for _, table := range tables {
+		if err := db.Exec(fmt.Sprintf("TRUNCATE TABLE %s CASCADE;", table)).Error; err != nil {
+			return fmt.Errorf("failed to truncate %s: %w", table, err)
+		}
+	}
+
 	return nil
 }
 

@@ -34,17 +34,17 @@ func Init(ctx context.Context, db *gorm.DB, ev events.VaultInitEvent, transactio
 	}
 
 	vault.Shutdown = false
-	vault.Activation = transaction.Timestamp.String()
+	vault.Activation = transaction.Timestamp
 	vault.AccountantID = acc.ID
-	vault.MinUserDeposit = ev.MinUserDeposit.String()
+	vault.MinUserDeposit = ev.MinUserDeposit
 	vault.KycVerifiedOnly = ev.KycVerifiedOnly
 	vault.DirectDepositEnabled = ev.DirectDepositEnabled
 	vault.WhitelistedOnly = ev.WhitelistedOnly
-	vault.ProfitMaxUnlockTime = ev.ProfitMaxUnlockTime.String()
-	vault.LastUpdate = transaction.Timestamp.String()
-	vault.MinTotalIdle = ev.MinimumTotalIdle.String()
+	vault.ProfitMaxUnlockTime = ev.ProfitMaxUnlockTime
+	vault.LastUpdate = transaction.Timestamp
+	vault.MinTotalIdle = ev.MinimumTotalIdle
 	vault.DirectWithdrawEnabled = ev.DirectWithdrawEnabled
-	vault.UserDepositLimit = ev.UserDepositLimit.String()
+	vault.UserDepositLimit = ev.UserDepositLimit
 
 	if err = vault.Save(ctx, db); err != nil {
 		return fmt.Errorf("[Init] failed to save vault: %w", err)
@@ -62,10 +62,10 @@ func AddStrategy(ctx context.Context, db *gorm.DB, ev events.VaultAddStrategyEve
 		return fmt.Errorf("[AddStrategy] failed to load strategy: %w", err)
 	}
 
-	strategy.MaxDebt = ev.MaxDebt.String()
-	strategy.CurrentDebt = ev.CurrentDebt.String()
+	strategy.MaxDebt = ev.MaxDebt
+	strategy.CurrentDebt = ev.CurrentDebt
 	strategy.VaultID = ev.VaultKey.String()
-	strategy.Activation = transaction.Timestamp.String()
+	strategy.Activation = transaction.Timestamp
 
 	if err := strategy.Save(ctx, db); err != nil {
 		return fmt.Errorf("[AddStrategy] failed to save strategy: %w", err)

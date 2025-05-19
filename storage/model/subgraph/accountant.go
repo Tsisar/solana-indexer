@@ -3,18 +3,19 @@ package subgraph
 import (
 	"context"
 	"errors"
+	"github.com/Tsisar/solana-indexer/subgraph/types"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )
 
 type Accountant struct {
-	ID              string `gorm:"primaryKey;column:id"`              // Accountant address
-	EntryFee        string `gorm:"column:entry_fee;default:0"`        // Entry fee
-	RedemptionFee   string `gorm:"column:redemption_fee;default:0"`   // Redemption fee
-	PerformanceFees string `gorm:"column:performance_fees;default:0"` // Performance fees
+	ID              string       `gorm:"primaryKey;column:id"`              // Accountant address
+	EntryFee        types.BigInt `gorm:"column:entry_fee;default:0"`        // Entry fee
+	RedemptionFee   types.BigInt `gorm:"column:redemption_fee;default:0"`   // Redemption fee
+	PerformanceFees types.BigInt `gorm:"column:performance_fees;default:0"` // Performance fees
 }
 
-func (*Accountant) TableName() string {
+func (Accountant) TableName() string {
 	return "accountants"
 }
 

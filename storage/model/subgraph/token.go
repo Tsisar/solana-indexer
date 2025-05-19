@@ -3,19 +3,20 @@ package subgraph
 import (
 	"context"
 	"errors"
+	"github.com/Tsisar/solana-indexer/subgraph/types"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )
 
 type Token struct {
-	ID           string `gorm:"primaryKey;column:id"`           // Token mint address
-	Decimals     string `gorm:"column:decimals;default:0"`      // Number of decimals
-	Name         string `gorm:"column:name"`                    // Name of the token
-	Symbol       string `gorm:"column:symbol"`                  // Symbol of the token
-	CurrentPrice string `gorm:"column:current_price;default:0"` // BigInt → string
+	ID           string       `gorm:"primaryKey;column:id"`           // Token mint address
+	Decimals     types.BigInt `gorm:"column:decimals;default:0"`      // Number of decimals
+	Name         string       `gorm:"column:name"`                    // Name of the token
+	Symbol       string       `gorm:"column:symbol"`                  // Symbol of the token
+	CurrentPrice types.BigInt `gorm:"column:current_price;default:0"` // BigInt → string
 }
 
-func (*Token) TableName() string {
+func (Token) TableName() string {
 	return "tokens"
 }
 

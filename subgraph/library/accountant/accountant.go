@@ -27,7 +27,7 @@ func SetRedemptionFee(ctx context.Context, db *gorm.DB, ev events.RedemptionFeeU
 	if _, err := accountant.Load(ctx, db); err != nil {
 		return fmt.Errorf("[SetRedemptionFee] failed to load accountant: %w", err)
 	}
-	accountant.RedemptionFee = ev.RedemptionFee.String()
+	accountant.RedemptionFee = ev.RedemptionFee
 	if err := accountant.Save(ctx, db); err != nil {
 		return fmt.Errorf("[SetRedemptionFee] failed to save accountant: %w", err)
 	}
@@ -39,7 +39,7 @@ func SetPerformanceFee(ctx context.Context, db *gorm.DB, ev events.PerformanceFe
 	if _, err := accountant.Load(ctx, db); err != nil {
 		return fmt.Errorf("[SetPerformanceFee] failed to load accountant: %w", err)
 	}
-	accountant.PerformanceFees = ev.PerformanceFee.String()
+	accountant.PerformanceFees = ev.PerformanceFee
 	if err := accountant.Save(ctx, db); err != nil {
 		return fmt.Errorf("[SetPerformanceFee] failed to save accountant: %w", err)
 	}
@@ -51,7 +51,7 @@ func SetEntryFee(ctx context.Context, db *gorm.DB, ev events.EntryFeeUpdatedEven
 	if _, err := accountant.Load(ctx, db); err != nil {
 		return fmt.Errorf("[SetEntryFee] failed to load accountant: %w", err)
 	}
-	accountant.EntryFee = ev.EntryFee.String()
+	accountant.EntryFee = ev.EntryFee
 	if err := accountant.Save(ctx, db); err != nil {
 		return fmt.Errorf("[SetEntryFee] failed to save accountant: %w", err)
 	}
