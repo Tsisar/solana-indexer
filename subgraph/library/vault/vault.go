@@ -18,6 +18,8 @@ func Init(ctx context.Context, db *gorm.DB, ev events.VaultInitEvent, transactio
 		return fmt.Errorf("[Init] failed to load vault: %w", err)
 	}
 
+	vault.Init()
+
 	vault.Token, err = token.UpsertUnderlyingToken(ctx, db, ev)
 	if err != nil {
 		return fmt.Errorf("[Init] failed to get or create underlying token entity: %v", err)
