@@ -1,0 +1,15 @@
+.git
+.gitignore
+Dockerfile
+docker-compose.yml
+README.md
+
+*.out
+*.exe
+*.log
+*.tmp
+
+.dev
+data
+idl
+generator
