@@ -48,40 +48,12 @@ func (Strategy) TableName() string {
 	return "strategies"
 }
 
-func (s *Strategy) Init() {
-	s.VaultID = ""
-	s.StrategyType = ""
-	s.Amount = types.ZeroBigInt()
-	s.TotalAssets = types.ZeroBigInt()
-	s.DepositLimit = types.ZeroBigInt()
-	s.DepositPeriodEnds = types.ZeroBigInt()
-	s.LockPeriodEnds = types.ZeroBigInt()
-	s.CurrentDebt = types.ZeroBigInt()
-	s.MaxDebt = types.ZeroBigInt()
-	s.Apr = types.ZeroBigDecimal()
-	s.Activation = types.ZeroBigInt()
-	s.DelegatedAssets = nil
-	s.LatestReportID = nil
-	s.ReportsCount = types.ZeroBigInt()
-	s.PerformanceFees = types.ZeroBigInt()
-	s.DtfReportID = nil
-	s.TotalAllocation = types.ZeroBigDecimal()
-	s.TotalAllocationPercent = types.ZeroBigDecimal()
-	s.EffectiveInvestedAmount = types.ZeroBigInt()
-	s.ProfitOrLoss = types.ZeroBigDecimal()
-	s.ProfitOrLossPercent = types.ZeroBigDecimal()
-	s.AssetID = nil
-	s.Removed = false
-	s.RemovedTimestamp = types.ZeroBigInt()
-}
-
 func (s *Strategy) Load(ctx context.Context, db *gorm.DB) (bool, error) {
 	err := db.WithContext(ctx).
 		First(s, "id = ?", s.ID).Error
 
 	switch {
 	case errors.Is(err, gorm.ErrRecordNotFound):
-		s.Init()
 		return false, nil
 	case err != nil:
 		return false, err

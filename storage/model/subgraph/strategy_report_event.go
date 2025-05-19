@@ -22,14 +22,6 @@ func (StrategyReportEvent) TableName() string {
 	return "strategy_report_events"
 }
 
-func (s *StrategyReportEvent) Init() {
-	s.Timestamp = types.ZeroBigInt()
-	s.BlockNumber = types.ZeroBigInt()
-	s.TransactionHash = ""
-	s.StrategyID = ""
-	s.SharePrice = types.ZeroBigInt()
-}
-
 func (s *StrategyReportEvent) Load(ctx context.Context, db *gorm.DB) (bool, error) {
 	err := db.WithContext(ctx).
 		Where("id = ?", s.ID).
@@ -37,7 +29,6 @@ func (s *StrategyReportEvent) Load(ctx context.Context, db *gorm.DB) (bool, erro
 
 	switch {
 	case errors.Is(err, gorm.ErrRecordNotFound):
-		s.Init()
 		return false, nil
 	case err != nil:
 		return false, err

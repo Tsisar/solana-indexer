@@ -26,14 +26,6 @@ func (ShareToken) TableName() string {
 	return "share_tokens"
 }
 
-func (s *ShareToken) Init() {
-	s.TotalMinted = types.ZeroBigDecimal()
-	s.TotalBurnt = types.ZeroBigDecimal()
-	s.TotalTransferIn = types.ZeroBigDecimal()
-	s.TotalTransferOut = types.ZeroBigDecimal()
-	s.CurrentPrice = types.ZeroBigInt()
-}
-
 func (s *ShareToken) Load(ctx context.Context, db *gorm.DB) (bool, error) {
 	err := db.WithContext(ctx).
 		Where("id = ?", s.ID).
@@ -41,7 +33,6 @@ func (s *ShareToken) Load(ctx context.Context, db *gorm.DB) (bool, error) {
 
 	switch {
 	case errors.Is(err, gorm.ErrRecordNotFound):
-		s.Init()
 		return false, nil
 	case err != nil:
 		return false, err

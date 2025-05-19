@@ -20,12 +20,6 @@ func (DeployFunds) TableName() string {
 	return "deploy_funds"
 }
 
-func (d *DeployFunds) Init() {
-	d.Amount = types.ZeroBigInt()
-	d.Timestamp = types.ZeroBigInt()
-	d.StrategyID = ""
-}
-
 func (d *DeployFunds) Load(ctx context.Context, db *gorm.DB) (bool, error) {
 	err := db.WithContext(ctx).
 		Where("id = ?", d.ID).
@@ -33,7 +27,6 @@ func (d *DeployFunds) Load(ctx context.Context, db *gorm.DB) (bool, error) {
 
 	switch {
 	case errors.Is(err, gorm.ErrRecordNotFound):
-		d.Init()
 		return false, nil
 	case err != nil:
 		return false, err

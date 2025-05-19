@@ -29,8 +29,6 @@ func CreateReport(ctx context.Context, db *gorm.DB, ev events.StrategyReportedEv
 			return fmt.Errorf("[createReport] failed to load strategy report: %w", err)
 		}
 
-		currentReport.Init()
-
 		currentReport.StrategyID = ev.StrategyKey.String()
 		currentReport.BlockNumber = transaction.Slot
 		currentReport.Timestamp = transaction.Timestamp
@@ -89,8 +87,6 @@ func createReportResult(ctx context.Context, db *gorm.DB, previousReport subgrap
 	if _, err := strategyReportResult.Load(ctx, db); err != nil {
 		return fmt.Errorf("[createReportResult] failed to load strategy report result: %w", err)
 	}
-
-	strategyReportResult.Init()
 
 	strategyReportResult.TransactionHash = transaction.Signature
 	strategyReportResult.Timestamp = transaction.Timestamp
@@ -171,7 +167,6 @@ func createReportResult(ctx context.Context, db *gorm.DB, previousReport subgrap
 	if _, err := newVaultHistoricalApr.Load(ctx, db); err != nil {
 		return fmt.Errorf("[createReportResult] failed to load vault historical APR: %w", err)
 	}
-	newVaultHistoricalApr.Init()
 	newVaultHistoricalApr.Timestamp = transaction.Timestamp
 	newVaultHistoricalApr.Apr = *vaultApr
 	newVaultHistoricalApr.VaultID = vault.ID
@@ -183,7 +178,6 @@ func createReportResult(ctx context.Context, db *gorm.DB, previousReport subgrap
 	if _, err := newStrategyHistoricalApr.Load(ctx, db); err != nil {
 		return fmt.Errorf("[createReportResult] failed to load strategy historical APR: %w", err)
 	}
-	newStrategyHistoricalApr.Init()
 	newStrategyHistoricalApr.Timestamp = transaction.Timestamp
 	newStrategyHistoricalApr.Apr = *strategyApr
 	newStrategyHistoricalApr.StrategyID = strategy.ID
@@ -214,7 +208,6 @@ func CreateReportEvent(ctx context.Context, db *gorm.DB, ev events.StrategyRepor
 		return fmt.Errorf("[createReportEvent] failed to load strategy report event: %w", err)
 	}
 
-	strategyReportEvent.Init()
 	strategyReportEvent.TransactionHash = transaction.Signature
 	strategyReportEvent.StrategyID = ev.StrategyKey.String()
 	strategyReportEvent.BlockNumber = transaction.Slot

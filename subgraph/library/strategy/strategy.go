@@ -15,8 +15,6 @@ func Init(ctx context.Context, db *gorm.DB, ev events.StrategyInitEvent) error {
 		return fmt.Errorf("[Init] failed to load strategy: %w", err)
 	}
 
-	strategy.Init()
-
 	strategy.StrategyType = ev.StrategyType
 	strategy.DepositLimit = ev.DepositLimit
 	strategy.DepositPeriodEnds = ev.DepositPeriodEnds

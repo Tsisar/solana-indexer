@@ -16,13 +16,6 @@ type Token struct {
 	CurrentPrice types.BigInt `gorm:"column:current_price;default:0"` // BigInt → string
 }
 
-func (t *Token) Init() {
-	t.Decimals = types.ZeroBigInt()
-	t.Name = ""
-	t.Symbol = ""
-	t.CurrentPrice = types.ZeroBigInt()
-}
-
 func (Token) TableName() string {
 	return "tokens"
 }
@@ -34,7 +27,6 @@ func (t *Token) Load(ctx context.Context, db *gorm.DB) (bool, error) {
 
 	switch {
 	case errors.Is(err, gorm.ErrRecordNotFound):
-		t.Init()
 		return false, nil
 	case err != nil:
 		return false, err

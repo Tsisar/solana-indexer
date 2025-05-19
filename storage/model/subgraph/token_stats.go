@@ -20,11 +20,6 @@ func (TokenStats) TableName() string {
 	return "token_stats"
 }
 
-func (t *TokenStats) Init() {
-	t.Timestamp = ""
-	t.SharePrice = types.ZeroBigDecimal()
-}
-
 func (t *TokenStats) Load(ctx context.Context, db *gorm.DB) (bool, error) {
 	err := db.WithContext(ctx).
 		Where("id = ?", t.ID).
@@ -32,7 +27,6 @@ func (t *TokenStats) Load(ctx context.Context, db *gorm.DB) (bool, error) {
 
 	switch {
 	case errors.Is(err, gorm.ErrRecordNotFound):
-		t.Init()
 		return false, nil
 	case err != nil:
 		return false, err

@@ -18,11 +18,6 @@ func (DTFReport) TableName() string {
 	return "dtf_reports"
 }
 
-func (d *DTFReport) Init() {
-	d.TotalAssets = types.ZeroBigInt()
-	d.Timestamp = types.ZeroBigInt()
-}
-
 func (d *DTFReport) Load(ctx context.Context, db *gorm.DB) (bool, error) {
 	err := db.WithContext(ctx).
 		Where("id = ?", d.ID).
@@ -30,7 +25,6 @@ func (d *DTFReport) Load(ctx context.Context, db *gorm.DB) (bool, error) {
 
 	switch {
 	case errors.Is(err, gorm.ErrRecordNotFound):
-		d.Init()
 		return false, nil
 	case err != nil:
 		return false, err

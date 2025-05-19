@@ -29,13 +29,6 @@ func (WithdrawalRequest) TableName() string {
 	return "withdrawal_requests"
 }
 
-func (w *WithdrawalRequest) Init() {
-	w.User = ""
-	w.VaultID = ""
-	w.Recipient = ""
-	w.Status = ""
-}
-
 func (w *WithdrawalRequest) Load(ctx context.Context, db *gorm.DB) (bool, error) {
 	err := db.WithContext(ctx).
 		Where("id = ?", w.ID).
@@ -43,7 +36,6 @@ func (w *WithdrawalRequest) Load(ctx context.Context, db *gorm.DB) (bool, error)
 
 	switch {
 	case errors.Is(err, gorm.ErrRecordNotFound):
-		w.Init()
 		return false, nil
 	case err != nil:
 		return false, err

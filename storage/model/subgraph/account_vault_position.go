@@ -29,17 +29,6 @@ func (AccountVaultPosition) TableName() string {
 	return "account_vault_positions"
 }
 
-func (p *AccountVaultPosition) Init() {
-	p.VaultID = ""
-	p.AccountID = ""
-	p.TokenID = ""
-	p.ShareTokenID = ""
-	p.BalanceShares = types.ZeroBigInt()
-	p.BalanceTokens = types.ZeroBigInt()
-	p.BalancePosition = types.ZeroBigInt()
-	p.BalanceProfit = types.ZeroBigInt()
-}
-
 func (p *AccountVaultPosition) Load(ctx context.Context, db *gorm.DB) (bool, error) {
 	err := db.WithContext(ctx).
 		Where("id = ?", p.ID).
@@ -47,7 +36,6 @@ func (p *AccountVaultPosition) Load(ctx context.Context, db *gorm.DB) (bool, err
 
 	switch {
 	case errors.Is(err, gorm.ErrRecordNotFound):
-		p.Init()
 		return false, nil
 	case err != nil:
 		return false, err

@@ -17,10 +17,6 @@ func (TokenWallet) TableName() string {
 	return "token_wallets"
 }
 
-func (t *TokenWallet) Init() {
-	t.AuthorityID = ""
-}
-
 func (t *TokenWallet) Load(ctx context.Context, db *gorm.DB) (bool, error) {
 	err := db.WithContext(ctx).
 		Where("id = ?", t.ID).
@@ -28,7 +24,6 @@ func (t *TokenWallet) Load(ctx context.Context, db *gorm.DB) (bool, error) {
 
 	switch {
 	case errors.Is(err, gorm.ErrRecordNotFound):
-		t.Init()
 		return false, nil
 	case err != nil:
 		return false, err

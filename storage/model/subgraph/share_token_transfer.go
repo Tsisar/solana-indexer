@@ -21,10 +21,6 @@ func (ShareTokenTransfer) TableName() string {
 	return "share_token_transfers"
 }
 
-func (s *ShareTokenTransfer) Init() {
-	s.Amount = types.ZeroBigDecimal()
-}
-
 func (s *ShareTokenTransfer) Load(ctx context.Context, db *gorm.DB) (bool, error) {
 	err := db.WithContext(ctx).
 		Where("id = ?", s.ID).
@@ -32,7 +28,6 @@ func (s *ShareTokenTransfer) Load(ctx context.Context, db *gorm.DB) (bool, error
 
 	switch {
 	case errors.Is(err, gorm.ErrRecordNotFound):
-		s.Init()
 		return false, nil
 	case err != nil:
 		return false, err
