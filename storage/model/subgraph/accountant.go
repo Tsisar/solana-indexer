@@ -26,12 +26,19 @@ func (a *Accountant) Load(ctx context.Context, db *gorm.DB) (bool, error) {
 
 	switch {
 	case errors.Is(err, gorm.ErrRecordNotFound):
+		a.Init()
 		return false, nil
 	case err != nil:
 		return false, err
 	default:
 		return true, nil
 	}
+}
+
+func (a *Accountant) Init() {
+	a.EntryFee = types.ZeroBigInt()
+	a.RedemptionFee = types.ZeroBigInt()
+	a.PerformanceFees = types.ZeroBigInt()
 }
 
 func (a *Accountant) Save(ctx context.Context, db *gorm.DB) error {

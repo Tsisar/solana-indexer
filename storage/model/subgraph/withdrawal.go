@@ -1,6 +1,12 @@
 package subgraph
 
-import "github.com/Tsisar/solana-indexer/subgraph/types"
+import (
+	"context"
+	"errors"
+	"github.com/Tsisar/solana-indexer/subgraph/types"
+	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
+)
 
 type Withdrawal struct {
 	ID           string       `gorm:"primaryKey;column:id"`          // Transaction-Log
@@ -21,4 +27,36 @@ type Withdrawal struct {
 
 func (Withdrawal) TableName() string {
 	return "withdrawals"
+}
+
+func (w *Withdrawal) Init() {
+	w.AccountID = ""
+	w.VaultID = ""
+	w.TokenID = ""
+	w.ShareTokenID = ""
+}
+
+func (w *Withdrawal) Load(ctx context.Context, db *gorm.DB) (bool, error) {
+	err := db.WithContext(ctx).
+		Where("id = ?", w.ID).
+		First(w).Error
+
+	switch {
+	case errors.Is(err, gorm.ErrRecordNotFound):
+		w.Init()
+		return false, nil
+	case err != nil:
+		return false, err
+	default:
+		return true, nil
+	}
+}
+
+func (w *Withdrawal) Save(ctx context.Context, db *gorm.DB) error {
+	return db.WithContext(ctx).
+		Clauses(clause.OnConflict{
+			Columns:   []clause.Column{{Name: "id"}},
+			UpdateAll: true,
+		}).
+		Create(w).Error
 }

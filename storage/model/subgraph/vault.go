@@ -53,6 +53,36 @@ func (Vault) TableName() string {
 	return "vaults"
 }
 
+func (v *Vault) Init() {
+	v.TokenID = ""
+	v.ShareTokenID = ""
+	v.DepositLimit = types.ZeroBigInt()
+	v.Shutdown = false
+	v.TotalDebt = types.ZeroBigInt()
+	v.TotalIdle = types.ZeroBigInt()
+	v.MinTotalIdle = types.ZeroBigInt()
+	v.TotalShare = types.ZeroBigInt()
+	v.Apr = types.ZeroBigDecimal()
+	v.SharesSupply = types.ZeroBigInt()
+	v.BalanceTokens = types.ZeroBigInt()
+	v.BalanceTokensIdle = types.ZeroBigInt()
+	v.Activation = types.ZeroBigInt()
+	v.PerformanceFees = types.ZeroBigInt()
+	v.TotalAllocation = types.ZeroBigDecimal()
+	v.AccountantID = ""
+	v.MinUserDeposit = types.ZeroBigInt()
+	v.UserDeposit = types.ZeroBigInt()
+	v.UserDepositLimit = types.ZeroBigInt()
+	v.KycVerifiedOnly = false
+	v.DirectWithdrawEnabled = false
+	v.DirectDepositEnabled = false
+	v.WhitelistedOnly = false
+	v.ProfitMaxUnlockTime = types.ZeroBigInt()
+	v.CurrentSharePrice = types.ZeroBigInt()
+	v.LastUpdate = types.ZeroBigInt()
+	v.TotalPriorityFees = types.ZeroBigInt()
+}
+
 func (v *Vault) Load(ctx context.Context, db *gorm.DB) (bool, error) {
 	err := db.WithContext(ctx).
 		Where("id = ?", v.ID).
@@ -60,6 +90,7 @@ func (v *Vault) Load(ctx context.Context, db *gorm.DB) (bool, error) {
 
 	switch {
 	case errors.Is(err, gorm.ErrRecordNotFound):
+		v.Init()
 		return false, nil
 	case err != nil:
 		return false, err

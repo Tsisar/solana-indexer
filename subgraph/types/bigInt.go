@@ -96,6 +96,18 @@ func (b *BigInt) Plus(other *BigInt) *BigInt {
 	}
 }
 
+func (b *BigInt) Zero() {
+	if b.Int == nil {
+		b.Int = big.NewInt(0)
+	} else {
+		b.Int.SetInt64(0)
+	}
+}
+
+func ZeroBigInt() BigInt {
+	return BigInt{Int: big.NewInt(0)}
+}
+
 func BigIntFromString(s string) (*BigInt, error) {
 	i, ok := new(big.Int).SetString(s, 10)
 	if !ok {

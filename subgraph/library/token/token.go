@@ -18,7 +18,7 @@ func UpsertUnderlyingToken(ctx context.Context, db *gorm.DB, event events.VaultI
 		return nil, fmt.Errorf("[UpsertUnderlyingToken] failed to load token: %w", err)
 	}
 
-	token.Decimals = event.UnderlyingToken.Decimals.String()
+	token.Decimals = event.UnderlyingToken.Decimals
 	token.Name = event.UnderlyingToken.Metadata.Name
 	token.Symbol = event.UnderlyingToken.Metadata.Symbol
 
@@ -37,7 +37,7 @@ func UpsertShareToken(ctx context.Context, db *gorm.DB, event events.VaultInitEv
 		return nil, fmt.Errorf("[UpsertUnderlyingToken] failed to load token: %w", err)
 	}
 
-	token.Decimals = event.ShareToken.Decimals.String()
+	token.Decimals = event.ShareToken.Decimals
 	token.Name = event.ShareToken.Metadata.Name
 	token.Symbol = event.ShareToken.Metadata.Symbol
 

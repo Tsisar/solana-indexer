@@ -20,12 +20,19 @@ func (VaultHistoricalApr) TableName() string {
 	return "vault_historical_aprs"
 }
 
+func (v *VaultHistoricalApr) Init() {
+	v.Timestamp = types.ZeroBigInt()
+	v.Apr = types.ZeroBigDecimal()
+	v.VaultID = ""
+}
+
 func (v *VaultHistoricalApr) Load(ctx context.Context, db *gorm.DB) (bool, error) {
 	err := db.WithContext(ctx).
 		First(v, "id = ?", v.ID).Error
 
 	switch {
 	case errors.Is(err, gorm.ErrRecordNotFound):
+		v.Init()
 		return false, nil
 	case err != nil:
 		return false, err

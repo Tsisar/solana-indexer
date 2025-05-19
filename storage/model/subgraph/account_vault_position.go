@@ -1,6 +1,13 @@
 package subgraph
 
-import "github.com/Tsisar/solana-indexer/subgraph/types"
+import (
+	"context"
+	"errors"
+
+	"github.com/Tsisar/solana-indexer/subgraph/types"
+	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
+)
 
 type AccountVaultPosition struct {
 	ID              string       `gorm:"primaryKey;column:id"`              // Account-Vault ID
@@ -20,4 +27,40 @@ type AccountVaultPosition struct {
 
 func (AccountVaultPosition) TableName() string {
 	return "account_vault_positions"
+}
+
+func (p *AccountVaultPosition) Init() {
+	p.VaultID = ""
+	p.AccountID = ""
+	p.TokenID = ""
+	p.ShareTokenID = ""
+	p.BalanceShares = types.ZeroBigInt()
+	p.BalanceTokens = types.ZeroBigInt()
+	p.BalancePosition = types.ZeroBigInt()
+	p.BalanceProfit = types.ZeroBigInt()
+}
+
+func (p *AccountVaultPosition) Load(ctx context.Context, db *gorm.DB) (bool, error) {
+	err := db.WithContext(ctx).
+		Where("id = ?", p.ID).
+		First(p).Error
+
+	switch {
+	case errors.Is(err, gorm.ErrRecordNotFound):
+		p.Init()
+		return false, nil
+	case err != nil:
+		return false, err
+	default:
+		return true, nil
+	}
+}
+
+func (p *AccountVaultPosition) Save(ctx context.Context, db *gorm.DB) error {
+	return db.WithContext(ctx).
+		Clauses(clause.OnConflict{
+			Columns:   []clause.Column{{Name: "id"}},
+			UpdateAll: true,
+		}).
+		Create(p).Error
 }

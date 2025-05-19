@@ -10,10 +10,17 @@ import (
 
 type Token struct {
 	ID           string       `gorm:"primaryKey;column:id"`           // Token mint address
-	Decimals     string       `gorm:"column:decimals;default:0"`      // Number of decimals
+	Decimals     types.BigInt `gorm:"column:decimals;default:0"`      // Number of decimals
 	Name         string       `gorm:"column:name"`                    // Name of the token
 	Symbol       string       `gorm:"column:symbol"`                  // Symbol of the token
 	CurrentPrice types.BigInt `gorm:"column:current_price;default:0"` // BigInt → string
+}
+
+func (t *Token) Init() {
+	t.Decimals = types.ZeroBigInt()
+	t.Name = ""
+	t.Symbol = ""
+	t.CurrentPrice = types.ZeroBigInt()
 }
 
 func (Token) TableName() string {
@@ -27,6 +34,7 @@ func (t *Token) Load(ctx context.Context, db *gorm.DB) (bool, error) {
 
 	switch {
 	case errors.Is(err, gorm.ErrRecordNotFound):
+		t.Init()
 		return false, nil
 	case err != nil:
 		return false, err

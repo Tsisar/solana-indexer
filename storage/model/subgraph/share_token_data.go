@@ -20,12 +20,19 @@ func (ShareTokenData) TableName() string {
 	return "share_token_data"
 }
 
+func (s *ShareTokenData) Init() {
+	s.VaultID = ""
+	s.Timestamp = types.ZeroBigInt()
+	s.SharePrice = types.ZeroBigInt()
+}
+
 func (s *ShareTokenData) Load(ctx context.Context, db *gorm.DB) (bool, error) {
 	err := db.WithContext(ctx).
 		First(s, "id = ?", s.ID).Error
 
 	switch {
 	case errors.Is(err, gorm.ErrRecordNotFound):
+		s.Init()
 		return false, nil
 	case err != nil:
 		return false, err
@@ -33,7 +40,6 @@ func (s *ShareTokenData) Load(ctx context.Context, db *gorm.DB) (bool, error) {
 		return true, nil
 	}
 }
-
 func (s *ShareTokenData) Save(ctx context.Context, db *gorm.DB) error {
 	return db.WithContext(ctx).
 		Clauses(clause.OnConflict{

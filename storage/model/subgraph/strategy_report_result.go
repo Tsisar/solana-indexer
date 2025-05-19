@@ -28,6 +28,19 @@ func (StrategyReportResult) TableName() string {
 	return "strategy_report_results"
 }
 
+func (s *StrategyReportResult) Init() {
+	s.Timestamp = types.ZeroBigInt()
+	s.BlockNumber = types.ZeroBigInt()
+	s.CurrentReportID = ""
+	s.PreviousReportID = ""
+	s.StartTimestamp = types.ZeroBigInt()
+	s.EndTimestamp = types.ZeroBigInt()
+	s.Duration = types.ZeroBigDecimal()
+	s.DurationPr = types.ZeroBigDecimal()
+	s.Apr = types.ZeroBigDecimal()
+	s.TransactionHash = ""
+}
+
 func (s *StrategyReportResult) Load(ctx context.Context, db *gorm.DB) (bool, error) {
 	err := db.WithContext(ctx).
 		Where("id = ?", s.ID).
@@ -35,6 +48,7 @@ func (s *StrategyReportResult) Load(ctx context.Context, db *gorm.DB) (bool, err
 
 	switch {
 	case errors.Is(err, gorm.ErrRecordNotFound):
+		s.Init()
 		return false, nil
 	case err != nil:
 		return false, err

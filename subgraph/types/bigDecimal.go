@@ -7,14 +7,18 @@ import (
 	"math/big"
 )
 
+// BigDecimalPrecision defines the bit precision for all BigDecimal operations.
+const BigDecimalPrecision = 256
+
 // BigDecimal wraps big.Float for use with GORM and JSON
+// All operations use a mantissa of BigDecimalPrecision bits.
 type BigDecimal struct {
 	*big.Float
 }
 
 // GormDataType tells GORM to use "numeric" in SQL
 func (BigDecimal) GormDataType() string {
-	return "numeric"
+	return "numeric(38,20)"
 }
 
 // Value implements driver.Valuer (for writing to DB)
@@ -22,7 +26,8 @@ func (b BigDecimal) Value() (driver.Value, error) {
 	if b.Float == nil {
 		return nil, nil
 	}
-	return b.Text('f', -1), nil // store as text (NUMERIC-compatible)
+	// use full precision text representation
+	return b.Text('f', -1), nil
 }
 
 // Scan implements sql.Scanner (for reading from DB)
@@ -43,11 +48,13 @@ func (b *BigDecimal) Scan(value interface{}) error {
 }
 
 func (b *BigDecimal) setString(s string) error {
-	f, _, err := big.ParseFloat(s, 10, 256, big.ToNearestEven)
+	// parse with defined precision
+	f, _, err := big.ParseFloat(s, 10, BigDecimalPrecision, big.ToNearestEven)
 	if err != nil {
 		return fmt.Errorf("failed to parse big.Float: %w", err)
 	}
-	b.Float = f
+	// ensure precision
+	b.Float = f.SetPrec(BigDecimalPrecision)
 	return nil
 }
 
@@ -61,18 +68,18 @@ func (b BigDecimal) MarshalJSON() ([]byte, error) {
 
 // UnmarshalJSON implements json.Unmarshaler
 func (b *BigDecimal) UnmarshalJSON(data []byte) error {
+	// try string first
 	var s string
 	if err := json.Unmarshal(data, &s); err == nil {
 		return b.setString(s)
 	}
-
 	// fallback to float64
-	var f float64
-	if err := json.Unmarshal(data, &f); err == nil {
-		b.Float = big.NewFloat(f)
+	var f64 float64
+	if err := json.Unmarshal(data, &f64); err == nil {
+		f := new(big.Float).SetPrec(BigDecimalPrecision).SetFloat64(f64)
+		b.Float = f
 		return nil
 	}
-
 	return fmt.Errorf("failed to unmarshal BigDecimal from JSON: %s", string(data))
 }
 
@@ -82,10 +89,10 @@ func (b *BigDecimal) Sub(other *BigDecimal) *BigDecimal {
 		return &BigDecimal{Float: nil}
 	}
 	if other == nil || other.Float == nil {
-		// b - nil = b
-		return &BigDecimal{Float: new(big.Float).Set(b.Float)}
+		// b - nil = b copy
+		return &BigDecimal{Float: new(big.Float).SetPrec(BigDecimalPrecision).Set(b.Float)}
 	}
-	result := new(big.Float).Sub(b.Float, other.Float)
+	result := new(big.Float).SetPrec(BigDecimalPrecision).Sub(b.Float, other.Float)
 	return &BigDecimal{Float: result}
 }
 
@@ -95,28 +102,39 @@ func (b *BigDecimal) SafeDiv(c *BigDecimal) *BigDecimal {
 	if b == nil || b.Float == nil || c == nil || c.Float == nil {
 		return &BigDecimal{Float: nil}
 	}
-
 	if c.Float.Sign() == 0 {
 		return &BigDecimal{Float: nil}
 	}
-
-	return &BigDecimal{Float: new(big.Float).Quo(b.Float, c.Float)}
+	result := new(big.Float).SetPrec(BigDecimalPrecision).Quo(b.Float, c.Float)
+	return &BigDecimal{Float: result}
 }
 
+// Mul returns the product b * other as a new BigDecimal.
 func (b *BigDecimal) Mul(other *BigDecimal) *BigDecimal {
 	if b == nil || b.Float == nil || other == nil || other.Float == nil {
 		return &BigDecimal{Float: nil}
 	}
-	return &BigDecimal{Float: new(big.Float).Mul(b.Float, other.Float)}
+	result := new(big.Float).SetPrec(BigDecimalPrecision).Mul(b.Float, other.Float)
+	return &BigDecimal{Float: result}
 }
 
 // Plus returns a + other as a new BigDecimal.
-// Returns nil.Float if any operand is nil.
 func (b *BigDecimal) Plus(other *BigDecimal) *BigDecimal {
 	if b == nil || b.Float == nil || other == nil || other.Float == nil {
 		return &BigDecimal{Float: nil}
 	}
-	return &BigDecimal{
-		Float: new(big.Float).Add(b.Float, other.Float),
+	result := new(big.Float).SetPrec(BigDecimalPrecision).Add(b.Float, other.Float)
+	return &BigDecimal{Float: result}
+}
+
+func (b *BigDecimal) Zero() {
+	if b.Float == nil {
+		b.Float = big.NewFloat(0).SetPrec(BigDecimalPrecision)
+	} else {
+		b.Float.SetPrec(BigDecimalPrecision).SetFloat64(0)
 	}
+}
+
+func ZeroBigDecimal() BigDecimal {
+	return BigDecimal{Float: big.NewFloat(0).SetPrec(BigDecimalPrecision)}
 }

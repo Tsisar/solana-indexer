@@ -21,12 +21,19 @@ func (StrategyHistoricalApr) TableName() string {
 	return "strategy_historical_aprs"
 }
 
+func (s *StrategyHistoricalApr) Init() {
+	s.Timestamp = types.ZeroBigInt()
+	s.Apr = types.ZeroBigDecimal()
+	s.StrategyID = ""
+}
+
 func (s *StrategyHistoricalApr) Load(ctx context.Context, db *gorm.DB) (bool, error) {
 	err := db.WithContext(ctx).
 		First(s, "id = ?", s.ID).Error
 
 	switch {
 	case errors.Is(err, gorm.ErrRecordNotFound):
+		s.Init()
 		return false, nil
 	case err != nil:
 		return false, err

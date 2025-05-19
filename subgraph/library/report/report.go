@@ -45,12 +45,7 @@ func CreateReport(ctx context.Context, db *gorm.DB, ev events.StrategyReportedEv
 			return fmt.Errorf("[createReport] failed to save strategy report: %w", err)
 		}
 
-		var previousReportId string
-		if strategy.LatestReportID != nil {
-			previousReportId = *strategy.LatestReportID
-		} else {
-			previousReportId = "nil"
-		}
+		previousReportId := strategy.LatestReportID
 
 		log.Debugf("[createReport] Getting previous report ID for strategy %s: %s.", strategy.ID, previousReportId)
 
@@ -59,8 +54,8 @@ func CreateReport(ctx context.Context, db *gorm.DB, ev events.StrategyReportedEv
 			return fmt.Errorf("[createReport] failed to save strategy: %w", err)
 		}
 
-		if previousReportId != "nil" {
-			previousReport := subgraph.StrategyReport{ID: previousReportId}
+		if previousReportId != nil && *previousReportId != "" {
+			previousReport := subgraph.StrategyReport{ID: *previousReportId}
 			ok, err = previousReport.Load(ctx, db)
 			if err != nil {
 				return fmt.Errorf("[createReport] failed to load current report: %w", err)
@@ -69,9 +64,12 @@ func CreateReport(ctx context.Context, db *gorm.DB, ev events.StrategyReportedEv
 				log.Warnf("[createReport] Report result NOT created. Current report not found: %s", previousReportId)
 				return nil
 			}
+			log.Debugf("[createReport] Creating report result for strategy %s: %s vs %s.", strategy.ID, previousReportId, currentReport.ID)
 			if err := createReportResult(ctx, db, previousReport, currentReport, transaction); err != nil {
 				return fmt.Errorf("[createReport] failed to create report result: %w", err)
 			}
+		} else {
+			log.Warnf("[createReport] Report result NOT created. Previous report not found: %s", previousReportId)
 		}
 	}
 	return nil
@@ -84,7 +82,7 @@ func createReportResult(ctx context.Context, db *gorm.DB, previousReport subgrap
 		return nil
 	}
 
-	id := utils.GenerateId(transaction.Signature, previousReport.TransactionHash, currentReport.TransactionHash)
+	id := utils.GenerateId(transaction.Signature, previousReport.ID, currentReport.ID)
 	strategyReportResult := subgraph.StrategyReportResult{ID: id}
 	if _, err := strategyReportResult.Load(ctx, db); err != nil {
 		return fmt.Errorf("[createReportResult] failed to load strategy report result: %w", err)
@@ -101,13 +99,13 @@ func createReportResult(ctx context.Context, db *gorm.DB, previousReport subgrap
 	duration := currentReport.Timestamp.Sub(&previousReport.Timestamp)
 	msInDays := utils.MillisToDays(duration)
 
-	strategyReportResult.Duration = *msInDays
+	strategyReportResult.Duration = *duration.ToBigDecimal()
 
 	//TODO: Check if this is correct
-	profit := currentReport.Gain.Sub(&currentReport.Loss)
+	profit := currentReport.Gain.Plus(&currentReport.Loss)
 
 	log.Infof(
-		"[createReportResult] Report Result - Start / End: %d / %d - Duration: %s (days) - Profit: %s",
+		"[createReportResult] Report Result - Start / End: %d / %d - Duration: %s (ms) - Profit: %s",
 		strategyReportResult.StartTimestamp,
 		strategyReportResult.EndTimestamp,
 		utils.FormatBigDecimal(&strategyReportResult.Duration, 6),

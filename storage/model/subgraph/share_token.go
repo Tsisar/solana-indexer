@@ -1,6 +1,12 @@
 package subgraph
 
-import "github.com/Tsisar/solana-indexer/subgraph/types"
+import (
+	"context"
+	"errors"
+	"github.com/Tsisar/solana-indexer/subgraph/types"
+	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
+)
 
 type ShareToken struct {
 	ID          string                `gorm:"primaryKey;column:id"` // Associated Token Account
@@ -18,4 +24,37 @@ type ShareToken struct {
 
 func (ShareToken) TableName() string {
 	return "share_tokens"
+}
+
+func (s *ShareToken) Init() {
+	s.TotalMinted = types.ZeroBigDecimal()
+	s.TotalBurnt = types.ZeroBigDecimal()
+	s.TotalTransferIn = types.ZeroBigDecimal()
+	s.TotalTransferOut = types.ZeroBigDecimal()
+	s.CurrentPrice = types.ZeroBigInt()
+}
+
+func (s *ShareToken) Load(ctx context.Context, db *gorm.DB) (bool, error) {
+	err := db.WithContext(ctx).
+		Where("id = ?", s.ID).
+		First(s).Error
+
+	switch {
+	case errors.Is(err, gorm.ErrRecordNotFound):
+		s.Init()
+		return false, nil
+	case err != nil:
+		return false, err
+	default:
+		return true, nil
+	}
+}
+
+func (s *ShareToken) Save(ctx context.Context, db *gorm.DB) error {
+	return db.WithContext(ctx).
+		Clauses(clause.OnConflict{
+			Columns:   []clause.Column{{Name: "id"}},
+			UpdateAll: true,
+		}).
+		Create(s).Error
 }
