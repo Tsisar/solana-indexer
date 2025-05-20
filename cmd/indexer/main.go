@@ -37,19 +37,19 @@ func main() {
 		}
 	}()
 
-	resume := false
+	resume := false // TODO: move to config
 
 	for {
 		ctx, cancel := context.WithCancel(context.Background())
 
-		errChan := make(chan error, 3)
+		errChan := make(chan error, 100)
 		wsReady := make(chan struct{})
 		fetchDone := make(chan struct{})
 		realtimeStream := make(chan string, 1000)
 
 		go func() {
 			log.Debug("[Main] Starting WebSocket listener...")
-			if err := listener.Start(ctx, db, wsReady, realtimeStream); err != nil {
+			if err := listener.Start(ctx, db, wsReady, realtimeStream, errChan); err != nil {
 				errChan <- err
 			}
 		}()

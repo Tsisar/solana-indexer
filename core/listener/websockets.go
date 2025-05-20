@@ -26,7 +26,7 @@ type fetchTask struct {
 // Start initializes WebSocket subscriptions and starts processing
 // of transactions fetched via WebSocket events.
 // It ensures all programs are subscribed before signaling readiness via wsReady.
-func Start(ctx context.Context, db *storage.Gorm, wsReady chan<- struct{}, realtimeStream chan<- string) error {
+func Start(ctx context.Context, db *storage.Gorm, wsReady chan<- struct{}, realtimeStream chan<- string, errorChan chan<- error) error {
 	// Connect to Solana WebSocket endpoint
 	wsClient, err := ws.Connect(ctx, config.App.RPCWSEndpoint)
 	if err != nil {
@@ -36,13 +36,11 @@ func Start(ctx context.Context, db *storage.Gorm, wsReady chan<- struct{}, realt
 	fetchQueue := make(chan fetchTask, 1000)
 	programCount := len(config.App.Programs)
 	connected := make(chan struct{}, programCount)
-	errorChan := make(chan error, programCount+1) // +1 for fetchFromQueue errors
-	fetchErrChan := make(chan error, 1)
 
 	// Start transaction fetcher that processes incoming WebSocket events
 	go func() {
 		if err := fetchFromQueue(ctx, db, fetchQueue, realtimeStream); err != nil {
-			fetchErrChan <- fmt.Errorf("[listener] fetcher error: %v", err)
+			errorChan <- fmt.Errorf("[listener] fetcher error: %v", err)
 		}
 	}()
 
@@ -63,10 +61,6 @@ func Start(ctx context.Context, db *storage.Gorm, wsReady chan<- struct{}, realt
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
-		case err := <-fetchErrChan:
-			return fmt.Errorf("[listener] fetcher exited with error: %w", err)
-		case err := <-errorChan:
-			return fmt.Errorf("[listener] websocket error: %w", err)
 		case <-connected:
 			readyCount++
 			if readyCount == programCount {
