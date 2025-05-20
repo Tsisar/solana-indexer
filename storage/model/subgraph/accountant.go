@@ -2,43 +2,36 @@ package subgraph
 
 import (
 	"context"
-	"errors"
+	"github.com/Tsisar/solana-indexer/storage/model/generic"
 	"github.com/Tsisar/solana-indexer/subgraph/types"
 	"gorm.io/gorm"
-	"gorm.io/gorm/clause"
 )
 
 type Accountant struct {
-	ID              string       `gorm:"primaryKey;column:id"`              // Accountant address
-	EntryFee        types.BigInt `gorm:"column:entry_fee;default:0"`        // Entry fee
-	RedemptionFee   types.BigInt `gorm:"column:redemption_fee;default:0"`   // Redemption fee
-	PerformanceFees types.BigInt `gorm:"column:performance_fees;default:0"` // Performance fees
+	ID              string       `gorm:"primaryKey;column:id"`    // Accountant address
+	EntryFee        types.BigInt `gorm:"column:entry_fee"`        // Entry fee
+	RedemptionFee   types.BigInt `gorm:"column:redemption_fee"`   // Redemption fee
+	PerformanceFees types.BigInt `gorm:"column:performance_fees"` // Performance fees
 }
 
 func (Accountant) TableName() string {
 	return "accountants"
 }
 
-func (a *Accountant) Load(ctx context.Context, db *gorm.DB) (bool, error) {
-	err := db.WithContext(ctx).
-		Where("id = ?", a.ID).
-		First(a).Error
+func (a *Accountant) Init() {
+	a.EntryFee.Zero()
+	a.RedemptionFee.Zero()
+	a.PerformanceFees.Zero()
+}
 
-	switch {
-	case errors.Is(err, gorm.ErrRecordNotFound):
-		return false, nil
-	case err != nil:
-		return false, err
-	default:
-		return true, nil
-	}
+func (a *Accountant) GetID() string {
+	return a.ID
+}
+
+func (a *Accountant) Load(ctx context.Context, db *gorm.DB) (bool, error) {
+	return generic.Load(ctx, db, a)
 }
 
 func (a *Accountant) Save(ctx context.Context, db *gorm.DB) error {
-	return db.WithContext(ctx).
-		Clauses(clause.OnConflict{
-			Columns:   []clause.Column{{Name: "id"}},
-			UpdateAll: true,
-		}).
-		Create(a).Error
+	return generic.Save(ctx, db, a)
 }

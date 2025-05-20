@@ -2,6 +2,7 @@ package subgraph
 
 import (
 	"context"
+	"github.com/Tsisar/solana-indexer/storage/model/generic"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 	"time"
@@ -44,10 +45,5 @@ func (*Meta) TableName() string {
 }
 
 func (m *Meta) Save(ctx context.Context, db *gorm.DB) error {
-	return db.WithContext(ctx).
-		Clauses(clause.OnConflict{
-			Columns:   []clause.Column{{Name: "id"}},
-			UpdateAll: true,
-		}).
-		Create(m).Error
+	return generic.Save(ctx, db, m)
 }

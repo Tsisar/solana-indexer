@@ -2,9 +2,8 @@ package subgraph
 
 import (
 	"context"
-	"errors"
+	"github.com/Tsisar/solana-indexer/storage/model/generic"
 	"gorm.io/gorm"
-	"gorm.io/gorm/clause"
 )
 
 type TokenWallet struct {
@@ -17,26 +16,19 @@ func (TokenWallet) TableName() string {
 	return "token_wallets"
 }
 
-func (t *TokenWallet) Load(ctx context.Context, db *gorm.DB) (bool, error) {
-	err := db.WithContext(ctx).
-		Where("id = ?", t.ID).
-		First(t).Error
+func (t *TokenWallet) Init() {
+	t.Authority = nil
+	t.AuthorityID = ""
+}
 
-	switch {
-	case errors.Is(err, gorm.ErrRecordNotFound):
-		return false, nil
-	case err != nil:
-		return false, err
-	default:
-		return true, nil
-	}
+func (t *TokenWallet) GetID() string {
+	return t.ID
+}
+
+func (t *TokenWallet) Load(ctx context.Context, db *gorm.DB) (bool, error) {
+	return generic.Load(ctx, db, t)
 }
 
 func (t *TokenWallet) Save(ctx context.Context, db *gorm.DB) error {
-	return db.WithContext(ctx).
-		Clauses(clause.OnConflict{
-			Columns:   []clause.Column{{Name: "id"}},
-			UpdateAll: true,
-		}).
-		Create(t).Error
+	return generic.Save(ctx, db, t)
 }
