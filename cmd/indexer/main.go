@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"github.com/Tsisar/extended-log-go/log"
+	"github.com/Tsisar/solana-indexer/core/fetcher"
 	"github.com/Tsisar/solana-indexer/core/healthchecker"
 	"github.com/Tsisar/solana-indexer/core/websockets"
 	"github.com/Tsisar/solana-indexer/storage"
@@ -43,7 +44,7 @@ func main() {
 		fetchDone := make(chan struct{})
 		realtimeStream := make(chan string, 1000)
 
-		go logging(ctx, wsReady, fetchDone, realtimeStream)
+		//go logging(ctx, wsReady, fetchDone, realtimeStream)
 
 		go func() {
 			if err := websockets.Start(ctx, db, wsReady, realtimeStream); err != nil {
@@ -52,21 +53,21 @@ func main() {
 			}
 		}()
 
-		//select {
-		//case <-ctx.Done():
-		//	break
-		//case <-wsReady:
-		//	log.Info("Main: WS ready, starting fetcher...")
-		//	//go fetcher.Start(ctx, db, fetchDone)
-		//}
-		//
-		//select {
-		//case <-ctx.Done():
-		//	break
-		//case <-fetchDone:
-		//	log.Info("Main: fetcher done, starting parser...")
-		//	//go runParser(ctx, realtimeStream)
-		//}
+		select {
+		case <-ctx.Done():
+			break
+		case <-wsReady:
+			log.Info("Main: WS ready, starting fetcher...")
+			go fetcher.Start(ctx, db, fetchDone)
+		}
+
+		select {
+		case <-ctx.Done():
+			break
+		case <-fetchDone:
+			log.Info("Main: fetcher done, starting parser...")
+			//go runParser(ctx, realtimeStream)
+		}
 
 		<-ctx.Done()
 		log.Info("Main: restarting full cycle in 5 seconds...")

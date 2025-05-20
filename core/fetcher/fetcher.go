@@ -6,35 +6,32 @@ import (
 	"fmt"
 	"github.com/Tsisar/extended-log-go/log"
 	"github.com/Tsisar/solana-indexer/core/config"
-	"github.com/Tsisar/solana-indexer/core/parser"
 	"github.com/Tsisar/solana-indexer/core/utils"
 	"github.com/Tsisar/solana-indexer/storage"
 	"github.com/Tsisar/solana-indexer/storage/model/core"
 	"github.com/gagliardetto/solana-go"
 	"github.com/gagliardetto/solana-go/rpc"
-	"sync"
 )
 
-var (
-	runMu      sync.Mutex                        // Mutex to guard access to isRunning and hasPending flags
-	isRunning  bool                              // Indicates whether the fetcher is currently running
-	hasPending bool                              // Indicates if a retry is queued while fetcher is running
-	client     = rpc.New(config.App.RPCEndpoint) // RPC client used for querying the Solana blockchain
-)
+var client = rpc.New(config.App.RPCEndpoint) // RPC client used for querying the Solana blockchain
 
 // Start is the main entry point for the fetcher module.
-// It begins a fetch cycle without resuming from the last signature.
-func Start(ctx context.Context, db *storage.Gorm) {
+// It begins a fresh fetch cycle (not resuming) and closes the `done` channel on completion.
+func Start(ctx context.Context, db *storage.Gorm, done chan struct{}) {
+	defer close(done) // ensure the signal is sent even on error
+
 	if err := fetch(ctx, db, false); err != nil {
-		log.Fatalf("Failed to fetch data: %v", err)
+		log.Fatalf("Fetcher error (start): %v", err)
 	}
 }
 
 // Resume restarts the fetcher with resume=true,
 // allowing it to continue from the last saved signature per program.
-func Resume(ctx context.Context, db *storage.Gorm) {
+func Resume(ctx context.Context, db *storage.Gorm, done chan struct{}) {
+	defer close(done)
+
 	if err := fetch(ctx, db, true); err != nil {
-		log.Fatalf("Failed to fetch data: %v", err)
+		log.Fatalf("Fetcher error (resume): %v", err)
 	}
 }
 
@@ -48,9 +45,6 @@ func fetch(ctx context.Context, db *storage.Gorm, resume bool) error {
 	}
 	if err := fetchRawTransactions(ctx, db); err != nil {
 		return fmt.Errorf("failed to fetch full transactions: %w", err)
-	}
-	if err := parser.ParseSavedTransactions(ctx, db, resume); err != nil {
-		return fmt.Errorf("failed to parse transactions: %w", err)
 	}
 	return nil
 }
