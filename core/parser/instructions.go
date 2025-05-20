@@ -108,7 +108,7 @@ func processInnerInstruction(ctx context.Context, db *storage.Gorm, msg *solana.
 		TransactionSignature: sig,
 		Slot:                 tx.Slot,
 		BlockTime:            blockTime,
-		LogIndex:             int(instrIndex+1)*100 + innerIndex,
+		LogIndex:             1000 + int(instrIndex+1)*100 + innerIndex,
 		Name:                 name,
 	}
 	evRecord.JsonEv, _ = json.Marshal(mapped)

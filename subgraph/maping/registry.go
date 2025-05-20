@@ -26,7 +26,7 @@ var registry = map[string]EventMapper{
 	"OrcaInitEvent":                         mapOrcaInitEvent,
 	"SetPerformanceFeeEvent":                mapSetPerformanceFeeEvent,
 	"StrategyDeployFundsEvent":              mapStrategyDeployFundsEvent,
-	"StrategyDepositEvent":                  mapStrategyDepositEvent,
+	"StrategyDepositEvent":                  mapStrategyDepositEvent, //Done
 	"StrategyFreeFundsEvent":                mapStrategyFreeFundsEvent,
 	"StrategyInitEvent":                     mapStrategyInitEvent, //Done
 	"StrategyReallocEvent":                  mapStrategyReallocEvent,
