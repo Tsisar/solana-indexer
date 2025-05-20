@@ -10,7 +10,6 @@ import (
 	"github.com/Tsisar/solana-indexer/core/utils"
 	"github.com/Tsisar/solana-indexer/storage"
 	"github.com/Tsisar/solana-indexer/storage/model/core"
-	"github.com/Tsisar/solana-indexer/subgraph"
 	"github.com/gagliardetto/solana-go"
 	"github.com/gagliardetto/solana-go/rpc"
 	"sync"
@@ -26,56 +25,16 @@ var (
 // Start is the main entry point for the fetcher module.
 // It begins a fetch cycle without resuming from the last signature.
 func Start(ctx context.Context, db *storage.Gorm) {
-	requestRun(ctx, db, "Start", false)
+	if err := fetch(ctx, db, false); err != nil {
+		log.Fatalf("Failed to fetch data: %v", err)
+	}
 }
 
 // Resume restarts the fetcher with resume=true,
 // allowing it to continue from the last saved signature per program.
 func Resume(ctx context.Context, db *storage.Gorm) {
-	requestRun(ctx, db, "Resume", true)
-}
-
-// requestRun ensures only one fetcher instance runs at a time.
-// If another run is already in progress, it optionally queues a retry.
-func requestRun(ctx context.Context, db *storage.Gorm, label string, resume bool) {
-	runMu.Lock()
-	if isRunning {
-		if hasPending {
-			log.Infof("%s: fetcher already running and a retry is already queued — skipping", label)
-			runMu.Unlock()
-			return
-		}
-		hasPending = true
-		log.Infof("%s: fetcher already running — queuing one retry", label)
-		runMu.Unlock()
-		return
-	}
-	isRunning = true
-	runMu.Unlock()
-
-	go runFetcher(ctx, db, label, resume)
-}
-
-// runFetcher handles a complete run of the fetcher,
-// and reruns once if a retry was queued while processing.
-func runFetcher(ctx context.Context, db *storage.Gorm, label string, resume bool) {
-	for {
-		log.Infof("%s: fetcher started", label)
-		if err := fetch(ctx, db, resume); err != nil {
-			subgraph.MapError(ctx, db, err)
-			log.Fatalf("%s failed: %v", label, err)
-		}
-
-		runMu.Lock()
-		if hasPending {
-			hasPending = false
-			runMu.Unlock()
-			log.Infof("%s: rerunning due to queued retry", label)
-			continue
-		}
-		isRunning = false
-		runMu.Unlock()
-		break
+	if err := fetch(ctx, db, true); err != nil {
+		log.Fatalf("Failed to fetch data: %v", err)
 	}
 }
 

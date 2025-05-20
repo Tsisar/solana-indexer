@@ -40,6 +40,24 @@ func (g *Gorm) SaveTransaction(ctx context.Context, tx *core.Transaction, progra
 	return nil
 }
 
+// AssociateTransactionWithProgram links a transaction to a program via the many-to-many relationship.
+func (g *Gorm) AssociateTransactionWithProgram(ctx context.Context, signature, programID string) error {
+	var prog core.Program
+	if err := g.DB.WithContext(ctx).
+		First(&prog, "id = ?", programID).Error; err != nil {
+		return fmt.Errorf("program not found: %w", err)
+	}
+
+	if err := g.DB.WithContext(ctx).
+		Model(&core.Transaction{Signature: signature}).
+		Association("Programs").
+		Append(&prog); err != nil {
+		return fmt.Errorf("failed to associate transaction with program: %w", err)
+	}
+
+	return nil
+}
+
 // UpdateTransactionRaw updates the `json_tx` field of a transaction by its signature.
 func (g *Gorm) UpdateTransactionRaw(ctx context.Context, signature string, raw []byte) error {
 	return g.DB.WithContext(ctx).
@@ -66,6 +84,18 @@ func (g *Gorm) IsParsed(ctx context.Context, signature string) (bool, error) {
 		Where("signature = ? AND parsed = true", signature).
 		Count(&count).Error; err != nil {
 		return false, fmt.Errorf("failed to check if transaction is parsed: %w", err)
+	}
+	return count > 0, nil
+}
+
+// IsRawFetched checks whether a transaction has already been fetched in raw format.
+func (g *Gorm) IsRawFetched(ctx context.Context, signature string) (bool, error) {
+	var count int64
+	if err := g.DB.WithContext(ctx).
+		Model(&core.Transaction{}).
+		Where("signature = ? AND json_tx IS NOT NULL", signature).
+		Count(&count).Error; err != nil {
+		return false, fmt.Errorf("failed to check if transaction is fetched: %w", err)
 	}
 	return count > 0, nil
 }

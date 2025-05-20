@@ -7,180 +7,164 @@ import (
 	"github.com/Tsisar/extended-log-go/log"
 	"github.com/Tsisar/solana-indexer/core/config"
 	"github.com/Tsisar/solana-indexer/core/fetcher"
-	"github.com/Tsisar/solana-indexer/core/parser"
 	"github.com/Tsisar/solana-indexer/core/utils"
 	"github.com/Tsisar/solana-indexer/storage"
 	"github.com/Tsisar/solana-indexer/storage/model/core"
-	"github.com/Tsisar/solana-indexer/subgraph"
 	"github.com/gagliardetto/solana-go"
 	"github.com/gagliardetto/solana-go/rpc"
 	"github.com/gagliardetto/solana-go/rpc/ws"
 	"gorm.io/datatypes"
-	"time"
 )
 
+// fetchTask represents a signature received from a WebSocket subscription
+// along with the associated program it was observed in.
 type fetchTask struct {
 	Signature string
 	Program   string
 }
 
-// Start initializes the WebSocket listeners and fetch queue processor.
-// It establishes subscriptions to all configured Solana programs and starts
-// a worker to process incoming transactions.
-func Start(ctx context.Context, db *storage.Gorm) error {
-	// Queue for handling incoming transactions via WebSocket
-	fetchQueue := make(chan fetchTask, 1000)
-
-	// Worker that waits until the DB is ready and then processes queued transactions.
-	go waitAndProcess(ctx, db, fetchQueue)
-
-	// Connect to Solana WebSocket RPC endpoint
+// Start initializes WebSocket subscriptions and starts processing
+// of transactions fetched via WebSocket events.
+// It ensures all programs are subscribed before signaling readiness via wsReady.
+func Start(ctx context.Context, db *storage.Gorm, wsReady chan<- struct{}, realtimeStream chan<- string) error {
+	// Connect to Solana WebSocket endpoint
 	wsClient, err := ws.Connect(ctx, config.App.RPCWSEndpoint)
 	if err != nil {
 		return fmt.Errorf("failed to connect to WebSocket: %w", err)
 	}
 
-	// Subscribe to logs for each configured program
+	fetchQueue := make(chan fetchTask, 1000)
+	programCount := len(config.App.Programs)
+	connected := make(chan struct{}, programCount)
+	errorChan := make(chan error, programCount+1) // +1 for fetchFromQueue errors
+	fetchErrChan := make(chan error, 1)
+
+	// Start transaction fetcher that processes incoming WebSocket events
+	go func() {
+		if err := fetchFromQueue(ctx, db, fetchQueue, realtimeStream); err != nil {
+			log.Errorf("Fetcher error: %v", err)
+			fetchErrChan <- err
+		}
+	}()
+
+	// Start WebSocket subscriptions for all configured programs
 	for _, program := range config.App.Programs {
 		publicKey := solana.MustPublicKeyFromBase58(program)
-		go func(pid solana.PublicKey, pidStr string) {
-			if err := watch(ctx, db, wsClient, pid, pidStr, fetchQueue); err != nil {
-				subgraph.MapError(ctx, db, err)
-				log.Fatalf("Watch failed for %s: %v", pidStr, err)
+
+		go func(pid solana.PublicKey) {
+			if err := watch(ctx, wsClient, pid, connected, fetchQueue); err != nil {
+				errorChan <- fmt.Errorf("watch failed for %s: %w", pid.String(), err)
 			}
-		}(publicKey, program)
-	}
-	return nil
-}
-
-// watch subscribes to log messages for the given program and sends new transactions into the fetch queue.
-// It handles reconnection and retry logic on failures.
-func watch(ctx context.Context, db *storage.Gorm, wsClient *ws.Client, publicKey solana.PublicKey, program string, fetchQueue chan<- fetchTask) error {
-	log.Infof("[watch:%s] watching...", program)
-
-	const maxFailures = 10
-	failures := 0
-
-OUTER:
-	for {
-		// Subscribe to logs mentioning the given program
-		sub, err := wsClient.LogsSubscribeMentions(publicKey, rpc.CommitmentConfirmed)
-		if err != nil {
-			failures++
-			log.Errorf("logs subscribe failed for %s (attempt %d/%d): %v", program, failures, maxFailures, err)
-
-			if failures >= maxFailures {
-				return fmt.Errorf("max reconnect attempts reached for %s", program)
-			}
-
-			time.Sleep(10 * time.Second)
-			continue OUTER
-		}
-
-		log.Infof("WebSocket: subscribed to program %s", program)
-		if failures > 0 {
-			log.Infof("WebSocket: reconnected to program %s after %d failures", program, failures)
-			failures = 0
-			// Trigger fetcher retry after reconnection
-			fetcher.Resume(ctx, db)
-		}
-
-		for {
-			select {
-			case <-ctx.Done():
-				sub.Unsubscribe()
-				return nil
-			default:
-				msg, err := sub.Recv(ctx)
-				if err != nil {
-					failures++
-					log.Warnf("WebSocket recv failed for %s: %v", program, err)
-					sub.Unsubscribe()
-					time.Sleep(5 * time.Second)
-					continue OUTER
-				}
-
-				if msg == nil {
-					continue
-				}
-
-				// Send the signature to the processing queue
-				fetchQueue <- fetchTask{
-					Signature: msg.Value.Signature.String(),
-					Program:   program,
-				}
-			}
-		}
-	}
-}
-
-// waitAndProcess waits for the database to become healthy and ready,
-// then starts processing the transaction queue as items arrive.
-func waitAndProcess(ctx context.Context, db *storage.Gorm, queue <-chan fetchTask) {
-	log.Info("Waiting for database readiness before starting fetcher...")
-
-	// Poll for DB readiness and health status
-	for {
-		status, reason, err := db.GetHealth(ctx)
-		if err != nil {
-			log.Errorf("Failed to get database health: %v", err)
-		} else if status != "healthy" {
-			log.Warnf("Database is not healthy: %s", reason)
-			break
-		}
-		ready, err := db.IsReady(ctx)
-		if err != nil {
-			log.Errorf("IsReady check failed: %v", err)
-		} else if ready {
-			log.Info("Database is ready. Starting fetch processing.")
-			break
-		}
-		time.Sleep(5 * time.Second)
+		}(publicKey)
 	}
 
-	// Process fetch tasks from the queue
+	// Wait until all programs are subscribed or an error occurs
+	readyCount := 0
 	for {
 		select {
 		case <-ctx.Done():
-			return
-		case task := <-queue:
-			log.Debugf("Processing from queue: %s", task.Signature)
-			fetch(ctx, db, task.Program, task.Signature)
+			return ctx.Err()
+		case err := <-fetchErrChan:
+			return fmt.Errorf("fetcher exited with error: %w", err)
+		case err := <-errorChan:
+			return fmt.Errorf("websocket error: %w", err)
+		case <-connected:
+			readyCount++
+			if readyCount == programCount {
+				log.Info("All WebSocket subscriptions are active.")
+				wsReady <- struct{}{}
+				return nil
+			}
 		}
 	}
 }
 
-// fetch performs the full lifecycle for handling a transaction:
-// 1. Skips if already parsed
-// 2. Fetches the raw transaction from RPC
-// 3. Saves it in the database
-// 4. Parses and stores events
-// 5. Marks the transaction as parsed
-func fetch(ctx context.Context, db *storage.Gorm, program, signature string) {
-	parsed, err := db.IsParsed(ctx, signature)
+// watch subscribes to transaction logs for a single Solana program
+// and forwards the observed signatures to the fetchQueue.
+func watch(ctx context.Context, wsClient *ws.Client, publicKey solana.PublicKey, readySignal chan<- struct{}, fetchQueue chan<- fetchTask) error {
+	log.Infof("[watch:%s] subscribing...", publicKey.String())
+
+	sub, err := wsClient.LogsSubscribeMentions(publicKey, rpc.CommitmentConfirmed)
 	if err != nil {
-		log.Errorf("Failed to check if transaction %s is parsed: %v", signature, err)
-		return
-	}
-	if parsed {
-		log.Warnf("Transaction %s already parsed, skipping", signature)
-		return
+		return fmt.Errorf("logs subscribe failed for %s: %w", publicKey.String(), err)
 	}
 
-	// Fetch the transaction from RPC
+	log.Infof("WebSocket: subscribed to program %s", publicKey.String())
+	readySignal <- struct{}{}
+
+	for {
+		select {
+		case <-ctx.Done():
+			sub.Unsubscribe()
+			return nil
+		default:
+			msg, err := sub.Recv(ctx)
+			if err != nil {
+				log.Errorf("WebSocket recv failed for %s: %v", publicKey.String(), err)
+				sub.Unsubscribe()
+				return fmt.Errorf("recv failed for %s: %w", publicKey.String(), err)
+			}
+
+			if msg == nil {
+				continue
+			}
+
+			// Push received signature into fetch queue for processing
+			fetchQueue <- fetchTask{
+				Signature: msg.Value.Signature.String(),
+				Program:   publicKey.String(),
+			}
+		}
+	}
+}
+
+// fetchFromQueue processes transactions sequentially from the fetchQueue:
+// it ensures each transaction is fetched from RPC and stored in the DB,
+// and then its signature is passed to the parser stream.
+func fetchFromQueue(ctx context.Context, db *storage.Gorm, queue <-chan fetchTask, stream chan<- string) error {
+	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case task := <-queue:
+			if err := fetch(ctx, db, task.Program, task.Signature, stream); err != nil {
+				return fmt.Errorf("fetch failed for transaction %s: %w", task.Signature, err)
+			}
+			log.Infof("Fetched transaction %s for program %s", task.Signature, task.Program)
+		}
+	}
+}
+
+// fetch loads a transaction from the Solana RPC,
+// stores it in the database, and pushes the signature to the parsing stream.
+func fetch(ctx context.Context, db *storage.Gorm, program, signature string, stream chan<- string) error {
+	// Skip if already fetched
+	fetched, err := db.IsRawFetched(ctx, signature)
+	if err != nil {
+		return fmt.Errorf("failed to check if transaction %s is fetched: %w", signature, err)
+	}
+	if fetched {
+		log.Warnf("Transaction %s already fetched, skipping...", signature)
+		err := db.AssociateTransactionWithProgram(ctx, signature, program)
+		if err != nil {
+			return fmt.Errorf("failed to associate transaction %s with program %s: %w", signature, program, err)
+		}
+		return nil
+	}
+
+	// Fetch raw transaction from RPC
 	txRes, err := fetcher.FetchRawTransaction(ctx, signature)
 	if err != nil {
-		log.Errorf("Failed to fetch raw transaction %s: %v", signature, err)
-		return
+		return fmt.Errorf("failed to fetch raw transaction %s: %w", signature, err)
 	}
 
+	// Serialize raw transaction to JSON
 	raw, err := json.Marshal(txRes)
 	if err != nil {
-		log.Errorf("Failed to marshal raw transaction %s: %v", signature, err)
-		return
+		return fmt.Errorf("failed to marshal raw transaction %s: %w", signature, err)
 	}
 
-	// Save the transaction into the DB
+	// Save to database
 	transaction := core.Transaction{
 		Signature: signature,
 		Slot:      txRes.Slot,
@@ -189,18 +173,14 @@ func fetch(ctx context.Context, db *storage.Gorm, program, signature string) {
 	}
 
 	if err := db.SaveTransaction(ctx, &transaction, program); err != nil {
-		log.Errorf("Failed to save transaction %s: %v", signature, err)
-		return
+		return fmt.Errorf("failed to save transaction %s: %w", signature, err)
 	}
 
-	// Parse the transaction (logs + instructions)
-	if err := parser.ParseTransaction(ctx, db, raw, signature); err != nil {
-		log.Errorf("Failed to parse transaction %s: %v", signature, err)
-		return
-	}
-
-	// Mark as parsed
-	if err := db.MarkParsed(ctx, signature); err != nil {
-		log.Errorf("failed to mark parsed %s: %v", signature, err)
+	// Push the signature to the realtime parsing stream
+	select {
+	case stream <- signature:
+		return nil
+	case <-ctx.Done():
+		return nil
 	}
 }
