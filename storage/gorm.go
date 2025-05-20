@@ -76,10 +76,6 @@ func InitCoreModels(ctx context.Context, db *Gorm) error {
 // InitSubgraphModels runs migrations for subgraph-specific models.
 // It also creates and validates the `latest_report_id` foreign key.
 func InitSubgraphModels(ctx context.Context, db *Gorm) error {
-	if err := truncateSubgraphTables(db.DB); err != nil {
-		return fmt.Errorf("failed to truncate subgraph tables: %w", err)
-	}
-
 	if err := db.DB.AutoMigrate(
 		&subgraph.Meta{},
 		&subgraph.BlockInfo{},
@@ -109,6 +105,10 @@ func InitSubgraphModels(ctx context.Context, db *Gorm) error {
 		&subgraph.WithdrawalRequest{},
 	); err != nil {
 		return fmt.Errorf("migration failed: %w", err)
+	}
+
+	if err := truncateSubgraphTables(db.DB); err != nil {
+		return fmt.Errorf("failed to truncate subgraph tables: %w", err)
 	}
 
 	if err := migrateWithLatestReport(db.DB); err != nil {
