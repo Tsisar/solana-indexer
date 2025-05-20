@@ -29,6 +29,19 @@ func Init(ctx context.Context, db *gorm.DB, ev events.StrategyInitEvent) error {
 	return nil
 }
 
+func Deposit(ctx context.Context, db *gorm.DB, ev events.StrategyDepositEvent) error {
+	strategy := subgraph.Strategy{ID: ev.AccountKey.String()}
+	if _, err := strategy.Load(ctx, db); err != nil {
+		return fmt.Errorf("[strategy] failed to load strategy: %w", err)
+	}
+	strategy.TotalAssets = ev.TotalAssets
+	if err := strategy.Save(ctx, db); err != nil {
+		return fmt.Errorf("[strategy] failed to save strategy: %w", err)
+	}
+
+	return nil
+}
+
 func UpdateCurrentDebt(ctx context.Context, db *gorm.DB, ev events.UpdatedCurrentDebtForStrategyEvent) error {
 	strategy := subgraph.Strategy{ID: ev.StrategyKey.String()}
 	if _, err := strategy.Load(ctx, db); err != nil {

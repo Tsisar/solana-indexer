@@ -147,7 +147,10 @@ func mapStrategyDepositEvent(ctx context.Context, db *gorm.DB, event core.Event)
 	if err := json.Unmarshal(event.JsonEv, &ev); err != nil {
 		return fmt.Errorf("failed to decode StrategyDepositEvent: %w", err)
 	}
-	// TODO: implement mapping logic
+
+	if err := strategy.Deposit(ctx, db, ev); err != nil {
+		return fmt.Errorf("failed to deposit strategy: %w", err)
+	}
 	return nil
 }
 
