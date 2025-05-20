@@ -23,7 +23,7 @@ func parseLogs(ctx context.Context, db *storage.Gorm, sig string, tx *rpc.GetTra
 
 	for idx, msg := range tx.Meta.LogMessages {
 		// Look only for logs that start with the expected prefix
-		if strings.HasPrefix(msg, "[parser] Program data: ") {
+		if strings.HasPrefix(msg, "Program data: ") {
 			if err := handleLogData(ctx, db, msg, sig, tx.Slot, timestamp, idx); err != nil {
 				return err
 			}
@@ -42,7 +42,7 @@ func parseLogs(ctx context.Context, db *storage.Gorm, sig string, tx *rpc.GetTra
 // 5. Serializes it to JSON and stores the result in the database.
 func handleLogData(ctx context.Context, db *storage.Gorm, msg, sig string, slot uint64, blockTime int64, index int) error {
 	// 1. Strip "Program data: " prefix and decode from base64
-	rawB64 := strings.TrimPrefix(msg, "[parser] Program data: ")
+	rawB64 := strings.TrimPrefix(msg, "Program data: ")
 	data, err := base64.StdEncoding.DecodeString(rawB64)
 	if err != nil {
 		return fmt.Errorf("[parser] base64 decode: %w", err)

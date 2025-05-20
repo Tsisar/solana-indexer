@@ -31,8 +31,7 @@ func main() {
 	}
 
 	go func() {
-		err := healthchecker.Start(appCtx, db)
-		if err != nil {
+		if err := healthchecker.Start(appCtx, db); err != nil {
 			subgraph.MapError(appCtx, db, err)
 			log.Fatalf("[Main] DB health check failed: %v", err)
 		}
@@ -43,27 +42,30 @@ func main() {
 	for {
 		ctx, cancel := context.WithCancel(context.Background())
 
+		errChan := make(chan error, 3)
 		wsReady := make(chan struct{})
 		fetchDone := make(chan struct{})
 		realtimeStream := make(chan string, 1000)
 
 		go func() {
-			log.Debug("[Main] Starting WebSocket...")
+			log.Debug("[Main] Starting WebSocket listener...")
 			if err := listener.Start(ctx, db, wsReady, realtimeStream); err != nil {
-				log.Errorf("[Main] WebSocket error: %v", err)
-				cancel()
+				errChan <- err
 			}
 		}()
 
 		select {
 		case <-ctx.Done():
 			break
+		case err := <-errChan:
+			subgraph.MapError(appCtx, db, err)
+			log.Errorf("[Main] Listener error: %v", err)
+			cancel()
 		case <-wsReady:
 			log.Info("[Main] WS ready, starting fetcher...")
 			go func() {
 				if err := fetcher.Start(ctx, db, resume, fetchDone); err != nil {
-					log.Errorf("[Main] Fetcher error: %v", err)
-					cancel()
+					errChan <- err
 				}
 			}()
 		}
@@ -71,17 +73,27 @@ func main() {
 		select {
 		case <-ctx.Done():
 			break
+		case err := <-errChan:
+			subgraph.MapError(appCtx, db, err)
+			log.Errorf("[Main] Fetcher error: %v", err)
+			cancel()
 		case <-fetchDone:
-			log.Info("[Main] fetcher done, starting parser...")
+			log.Info("[Main] Fetcher done, starting parser...")
 			go func() {
 				if err := parser.Start(ctx, db, resume, realtimeStream); err != nil {
-					log.Errorf("[Main] Parser error: %v", err)
-					cancel()
+					errChan <- err
 				}
 			}()
 		}
 
-		<-ctx.Done()
+		select {
+		case <-ctx.Done():
+		case err := <-errChan:
+			subgraph.MapError(appCtx, db, err)
+			log.Errorf("[Main] Parser error: %v", err)
+			cancel()
+		}
+
 		resume = true
 		log.Info("[Main] restarting full cycle in 5 seconds...")
 		time.Sleep(5 * time.Second)

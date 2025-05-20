@@ -88,9 +88,9 @@ func parseTransaction(ctx context.Context, db *storage.Gorm, rawTx []byte, sig s
 		return nil
 	}
 
-	log.Infof("[parser] Parsing token instructions for %s", sig)
+	log.Infof("[parser] Parsing instructions for %s", sig)
 	if err := parseTokenInstructions(ctx, db, sig, &tx); err != nil {
-		return fmt.Errorf("[parser] error parsing token instructions in %s: %w", sig, err)
+		return fmt.Errorf("[parser] error parsing instructions in %s: %w", sig, err)
 	}
 
 	log.Infof("[parser] Parsing logs for %s", sig)
