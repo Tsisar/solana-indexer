@@ -1,4 +1,4 @@
-package websockets
+package listener
 
 import (
 	"context"
@@ -30,7 +30,7 @@ func Start(ctx context.Context, db *storage.Gorm, wsReady chan<- struct{}, realt
 	// Connect to Solana WebSocket endpoint
 	wsClient, err := ws.Connect(ctx, config.App.RPCWSEndpoint)
 	if err != nil {
-		return fmt.Errorf("failed to connect to WebSocket: %w", err)
+		return fmt.Errorf("[listener] failed to connect to WebSocket: %w", err)
 	}
 
 	fetchQueue := make(chan fetchTask, 1000)
@@ -42,8 +42,7 @@ func Start(ctx context.Context, db *storage.Gorm, wsReady chan<- struct{}, realt
 	// Start transaction fetcher that processes incoming WebSocket events
 	go func() {
 		if err := fetchFromQueue(ctx, db, fetchQueue, realtimeStream); err != nil {
-			log.Errorf("Fetcher error: %v", err)
-			fetchErrChan <- err
+			fetchErrChan <- fmt.Errorf("[listener] fetcher error: %v", err)
 		}
 	}()
 
@@ -53,7 +52,7 @@ func Start(ctx context.Context, db *storage.Gorm, wsReady chan<- struct{}, realt
 
 		go func(pid solana.PublicKey) {
 			if err := watch(ctx, wsClient, pid, connected, fetchQueue); err != nil {
-				errorChan <- fmt.Errorf("watch failed for %s: %w", pid.String(), err)
+				errorChan <- fmt.Errorf("[listener] watch failed for %s: %w", pid.String(), err)
 			}
 		}(publicKey)
 	}
@@ -65,13 +64,13 @@ func Start(ctx context.Context, db *storage.Gorm, wsReady chan<- struct{}, realt
 		case <-ctx.Done():
 			return ctx.Err()
 		case err := <-fetchErrChan:
-			return fmt.Errorf("fetcher exited with error: %w", err)
+			return fmt.Errorf("[listener] fetcher exited with error: %w", err)
 		case err := <-errorChan:
-			return fmt.Errorf("websocket error: %w", err)
+			return fmt.Errorf("[listener] websocket error: %w", err)
 		case <-connected:
 			readyCount++
 			if readyCount == programCount {
-				log.Info("All WebSocket subscriptions are active.")
+				log.Info("[listener] All WebSocket subscriptions are active.")
 				wsReady <- struct{}{}
 				return nil
 			}
@@ -82,14 +81,14 @@ func Start(ctx context.Context, db *storage.Gorm, wsReady chan<- struct{}, realt
 // watch subscribes to transaction logs for a single Solana program
 // and forwards the observed signatures to the fetchQueue.
 func watch(ctx context.Context, wsClient *ws.Client, publicKey solana.PublicKey, readySignal chan<- struct{}, fetchQueue chan<- fetchTask) error {
-	log.Infof("[watch:%s] subscribing...", publicKey.String())
+	log.Infof("[listener] subscribing for %s...", publicKey.String())
 
 	sub, err := wsClient.LogsSubscribeMentions(publicKey, rpc.CommitmentConfirmed)
 	if err != nil {
-		return fmt.Errorf("logs subscribe failed for %s: %w", publicKey.String(), err)
+		return fmt.Errorf("[listener] logs subscribe failed for %s: %w", publicKey.String(), err)
 	}
 
-	log.Infof("WebSocket: subscribed to program %s", publicKey.String())
+	log.Infof("[listener] subscribed to program %s", publicKey.String())
 	readySignal <- struct{}{}
 
 	for {
@@ -100,9 +99,9 @@ func watch(ctx context.Context, wsClient *ws.Client, publicKey solana.PublicKey,
 		default:
 			msg, err := sub.Recv(ctx)
 			if err != nil {
-				log.Errorf("WebSocket recv failed for %s: %v", publicKey.String(), err)
+				log.Errorf("[listener] WebSocket recv failed for %s: %v", publicKey.String(), err)
 				sub.Unsubscribe()
-				return fmt.Errorf("recv failed for %s: %w", publicKey.String(), err)
+				return fmt.Errorf("[listener] recv failed for %s: %w", publicKey.String(), err)
 			}
 
 			if msg == nil {
@@ -128,9 +127,9 @@ func fetchFromQueue(ctx context.Context, db *storage.Gorm, queue <-chan fetchTas
 			return ctx.Err()
 		case task := <-queue:
 			if err := fetch(ctx, db, task.Program, task.Signature, stream); err != nil {
-				return fmt.Errorf("fetch failed for transaction %s: %w", task.Signature, err)
+				return fmt.Errorf("[listener] fetch failed for transaction %s: %w", task.Signature, err)
 			}
-			log.Infof("Fetched transaction %s for program %s", task.Signature, task.Program)
+			log.Infof("[listener] Fetched transaction %s for program %s", task.Signature, task.Program)
 		}
 	}
 }
@@ -141,13 +140,13 @@ func fetch(ctx context.Context, db *storage.Gorm, program, signature string, str
 	// Skip if already fetched
 	fetched, err := db.IsRawFetched(ctx, signature)
 	if err != nil {
-		return fmt.Errorf("failed to check if transaction %s is fetched: %w", signature, err)
+		return fmt.Errorf("[listener] failed to check if transaction %s is fetched: %w", signature, err)
 	}
 	if fetched {
-		log.Warnf("Transaction %s already fetched, skipping...", signature)
+		log.Warnf("[listener] Transaction %s already fetched, skipping...", signature)
 		err := db.AssociateTransactionWithProgram(ctx, signature, program)
 		if err != nil {
-			return fmt.Errorf("failed to associate transaction %s with program %s: %w", signature, program, err)
+			return fmt.Errorf("[listener] failed to associate transaction %s with program %s: %w", signature, program, err)
 		}
 		return nil
 	}
@@ -155,13 +154,13 @@ func fetch(ctx context.Context, db *storage.Gorm, program, signature string, str
 	// Fetch raw transaction from RPC
 	txRes, err := fetcher.FetchRawTransaction(ctx, signature)
 	if err != nil {
-		return fmt.Errorf("failed to fetch raw transaction %s: %w", signature, err)
+		return fmt.Errorf("[listener] failed to fetch raw transaction %s: %w", signature, err)
 	}
 
 	// Serialize raw transaction to JSON
 	raw, err := json.Marshal(txRes)
 	if err != nil {
-		return fmt.Errorf("failed to marshal raw transaction %s: %w", signature, err)
+		return fmt.Errorf("[listener] failed to marshal raw transaction %s: %w", signature, err)
 	}
 
 	// Save to database
@@ -173,7 +172,7 @@ func fetch(ctx context.Context, db *storage.Gorm, program, signature string, str
 	}
 
 	if err := db.SaveTransaction(ctx, &transaction, program); err != nil {
-		return fmt.Errorf("failed to save transaction %s: %w", signature, err)
+		return fmt.Errorf("[listener] failed to save transaction %s: %w", signature, err)
 	}
 
 	// Push the signature to the realtime parsing stream

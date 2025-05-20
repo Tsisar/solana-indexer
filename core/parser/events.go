@@ -23,13 +23,13 @@ func parseLogs(ctx context.Context, db *storage.Gorm, sig string, tx *rpc.GetTra
 
 	for idx, msg := range tx.Meta.LogMessages {
 		// Look only for logs that start with the expected prefix
-		if strings.HasPrefix(msg, "Program data: ") {
+		if strings.HasPrefix(msg, "[parser] Program data: ") {
 			if err := handleLogData(ctx, db, msg, sig, tx.Slot, timestamp, idx); err != nil {
 				return err
 			}
 		}
 	}
-	log.Debugf("Parsed %d log messages for transaction %s", len(tx.Meta.LogMessages), sig)
+	log.Debugf("[parser] Parsed %d log messages for transaction %s", len(tx.Meta.LogMessages), sig)
 	return nil
 }
 
@@ -42,15 +42,15 @@ func parseLogs(ctx context.Context, db *storage.Gorm, sig string, tx *rpc.GetTra
 // 5. Serializes it to JSON and stores the result in the database.
 func handleLogData(ctx context.Context, db *storage.Gorm, msg, sig string, slot uint64, blockTime int64, index int) error {
 	// 1. Strip "Program data: " prefix and decode from base64
-	rawB64 := strings.TrimPrefix(msg, "Program data: ")
+	rawB64 := strings.TrimPrefix(msg, "[parser] Program data: ")
 	data, err := base64.StdEncoding.DecodeString(rawB64)
 	if err != nil {
-		return fmt.Errorf("base64 decode: %w", err)
+		return fmt.Errorf("[parser] base64 decode: %w", err)
 	}
 
 	// 2. Ensure there are at least 8 bytes for the discriminator
 	if len(data) < 8 {
-		log.Warnf("data too short for discriminator: %x", data)
+		log.Warnf("[parser] data too short for discriminator: %x", data)
 		return nil
 	}
 
@@ -62,27 +62,27 @@ func handleLogData(ctx context.Context, db *storage.Gorm, msg, sig string, slot 
 	// 4. Lookup event name by discriminator
 	eventName, ok := events.Discriminators[disc]
 	if !ok {
-		log.Warnf("Unknown discriminator: %x", disc)
+		log.Warnf("[parser] Unknown discriminator: %x", disc)
 		return nil
 	}
 
 	// 5. Get the decoder function for this event
 	decoder, ok := events.Registry[eventName]
 	if !ok {
-		log.Warnf("No decoder for event: %s", eventName)
+		log.Warnf("[parser] No decoder for event: %s", eventName)
 		return nil
 	}
 
 	// 6. Decode the payload
 	parsed, err := decoder(payload)
 	if err != nil {
-		return fmt.Errorf("failed to decode %s: %w", eventName, err)
+		return fmt.Errorf("[parser] failed to decode %s: %w", eventName, err)
 	}
 
 	// 7. Serialize the parsed event to JSON
 	jsonVal, err := json.Marshal(parsed)
 	if err != nil {
-		return fmt.Errorf("failed to marshal event value: %w", err)
+		return fmt.Errorf("[parser] failed to marshal event value: %w", err)
 	}
 
 	// 8. Save the event to the database
@@ -95,7 +95,7 @@ func handleLogData(ctx context.Context, db *storage.Gorm, msg, sig string, slot 
 		JsonEv:               datatypes.JSON(jsonVal),
 	}
 	if err := db.SaveEvent(ctx, evRecord); err != nil {
-		return fmt.Errorf("save event %s: %w", eventName, err)
+		return fmt.Errorf("[parser] save event %s: %w", eventName, err)
 	}
 
 	// 9. Map event for subgraph processing
