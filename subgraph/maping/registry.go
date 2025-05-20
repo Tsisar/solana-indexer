@@ -31,7 +31,7 @@ var registry = map[string]EventMapper{
 	"StrategyInitEvent":                     mapStrategyInitEvent, //Done
 	"StrategyReallocEvent":                  mapStrategyReallocEvent,
 	"StrategyShutdownEvent":                 mapStrategyShutdownEvent,
-	"StrategyWithdrawEvent":                 mapStrategyWithdrawEvent,
+	"StrategyWithdrawEvent":                 mapStrategyWithdrawEvent, //Done
 	"TotalInvestedUpdatedEvent":             mapTotalInvestedUpdatedEvent,
 	"StrategyReportedEvent":                 mapStrategyReportedEvent, //Done
 	"UpdatedCurrentDebtForStrategyEvent":    mapUpdatedCurrentDebtForStrategyEvent,
@@ -49,7 +49,7 @@ var registry = map[string]EventMapper{
 	"VaultUpdateProfitMaxUnlockTimeEvent":   mapVaultUpdateProfitMaxUnlockTimeEvent,
 	"VaultUpdateUserDepositLimitEvent":      mapVaultUpdateUserDepositLimitEvent,
 	"VaultUpdateWhitelistedOnlyEvent":       mapVaultUpdateWhitelistedOnlyEvent,
-	"VaultWithdrawlEvent":                   mapVaultWithdrawlEvent,
+	"VaultWithdrawlEvent":                   mapVaultWithdrawlEvent, //Done
 	"WhitelistUpdatedEvent":                 mapWhitelistUpdatedEvent,
 	"WithdrawalRequestCanceledEvent":        mapWithdrawalRequestCanceledEvent,
 	"WithdrawalRequestFulfilledEvent":       mapWithdrawalRequestFulfilledEvent,

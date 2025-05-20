@@ -202,7 +202,10 @@ func mapStrategyWithdrawEvent(ctx context.Context, db *gorm.DB, event core.Event
 	if err := json.Unmarshal(event.JsonEv, &ev); err != nil {
 		return fmt.Errorf("failed to decode StrategyWithdrawEvent: %w", err)
 	}
-	// TODO: implement mapping logic
+
+	if err := strategy.Withdraw(ctx, db, ev); err != nil {
+		return fmt.Errorf("failed to withdraw strategy: %w", err)
+	}
 	return nil
 }
 

@@ -203,7 +203,12 @@ func mapVaultWithdrawlEvent(ctx context.Context, db *gorm.DB, event core.Event) 
 	if err := json.Unmarshal(event.JsonEv, &ev); err != nil {
 		return fmt.Errorf("[maping] failed to decode VaultWithdrawlEvent: %w", err)
 	}
-	// TODO: implement mapping logic
+
+	transaction := events.NewTransaction(event)
+
+	if err := vault.Withdraw(ctx, db, ev, transaction); err != nil {
+		return fmt.Errorf("[maping] failed to withdraw: %w", err)
+	}
 	return nil
 }
 

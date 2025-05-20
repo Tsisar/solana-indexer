@@ -12,6 +12,7 @@ import (
 	"github.com/Tsisar/solana-indexer/subgraph/library/token"
 	"github.com/Tsisar/solana-indexer/subgraph/types"
 	"github.com/Tsisar/solana-indexer/subgraph/utils"
+	"math/big"
 
 	"gorm.io/gorm"
 )
@@ -117,7 +118,7 @@ func Deposit(ctx context.Context, db *gorm.DB, ev events.VaultDepositEvent, tran
 		return fmt.Errorf("[vault] failed to save vault: %w", err)
 	}
 
-	if err := vaultPositionDeposit(ctx, db, ev, transaction); err != nil {
+	if err := vaultPositionDeposit(ctx, db, ev); err != nil {
 		return fmt.Errorf("[vault] failed to save vault position deposit: %w", err)
 	}
 
@@ -147,7 +148,7 @@ func StrategyReported(ctx context.Context, db *gorm.DB, ev events.StrategyReport
 	return nil
 }
 
-func vaultPositionDeposit(ctx context.Context, db *gorm.DB, ev events.VaultDepositEvent, transaction events.Transaction) error {
+func vaultPositionDeposit(ctx context.Context, db *gorm.DB, ev events.VaultDepositEvent) error {
 	vault := subgraph.Vault{ID: ev.VaultKey.String()}
 	if _, err := vault.Load(ctx, db); err != nil {
 		return fmt.Errorf("[vault] failed to load vault: %w", err)
@@ -196,6 +197,156 @@ func vaultPositionDeposit(ctx context.Context, db *gorm.DB, ev events.VaultDepos
 		return fmt.Errorf("[vault] failed to save vault position: %w", err)
 	}
 	return nil
+}
+
+func Withdraw(ctx context.Context, db *gorm.DB, ev events.VaultWithdrawlEvent, transaction events.Transaction) error {
+	if err := account.UpdateAccount(ctx, db, ev.Authority.String(), ev.TokenAccount.String(), ev.ShareAccount.String()); err != nil {
+		return fmt.Errorf("[vault] failed to update account: %w", err)
+	}
+
+	id := utils.GenerateId(transaction.Signature, transaction.EventIndex.String())
+	withdrwal := subgraph.Withdrawal{ID: id}
+	if _, err := withdrwal.Load(ctx, db); err != nil {
+		return fmt.Errorf("[vault] failed to load withdrawal: %w", err)
+	}
+	withdrwal.Timestamp = ev.Timestamp
+	withdrwal.BlockNumber = transaction.Slot
+	withdrwal.AccountID = ev.Authority.String()
+	withdrwal.VaultID = ev.VaultKey.String()
+	withdrwal.TokenAmount = ev.AssetsToTransfer
+	withdrwal.SharesBurnt = ev.SharesToBurn
+	withdrwal.ShareTokenID = ev.ShareMint.String()
+	withdrwal.TokenID = ev.TokenMint.String()
+	withdrwal.SharePrice = ev.SharePrice
+	if err := withdrwal.Save(ctx, db); err != nil {
+		return fmt.Errorf("[vault] failed to save withdrawal: %w", err)
+	}
+
+	vault := subgraph.Vault{ID: ev.VaultKey.String()}
+	if _, err := vault.Load(ctx, db); err != nil {
+		return fmt.Errorf("[vault] failed to load vault: %w", err)
+	}
+
+	//TODO: This is as per fathom logic...
+	vault.TotalIdle = ev.TotalIdle
+	vault.TotalShare = ev.TotalShare
+	vault.BalanceTokensIdle = ev.TotalIdle
+	vault.BalanceTokens = ev.TotalShare
+
+	if err := vault.Save(ctx, db); err != nil {
+		return fmt.Errorf("[vault] failed to save vault: %w", err)
+	}
+
+	if err := vaultPositionWithdraw(ctx, db, ev); err != nil {
+		return fmt.Errorf("[vault] failed to save vault position withdraw: %w", err)
+	}
+
+	if err := UpdateCurrentSharePrice(ctx, db, vault.ID, ev.SharePrice); err != nil {
+		return fmt.Errorf("[vault] failed to update current share price: %w", err)
+	}
+
+	return nil
+}
+
+func vaultPositionWithdraw(ctx context.Context, db *gorm.DB, ev events.VaultWithdrawlEvent) error {
+	vault := subgraph.Vault{ID: ev.VaultKey.String()}
+	if _, err := vault.Load(ctx, db); err != nil {
+		return fmt.Errorf("[vault] failed to load vault: %w", err)
+	}
+
+	t := subgraph.Token{ID: vault.TokenID}
+	if _, err := t.Load(ctx, db); err != nil {
+		return fmt.Errorf("[vault] failed to load token wallet: %w", err)
+	}
+
+	//TODO: check if this is correct
+	var pricePerShare *types.BigInt
+	sum := vault.TotalDebt.Plus(&vault.TotalIdle)
+	if vault.TotalShare.Int != nil && vault.TotalShare.Int.Sign() > 0 {
+		pricePerShare = sum.Div(&vault.TotalShare)
+	} else {
+		log.Info("[mapping] totalShares is zero!")
+		pricePerShare = sum
+	}
+
+	if t.Decimals.Int.Sign() == 0 {
+		log.Warn("[mapping] token decimals is zero!")
+		return nil
+	}
+
+	product := ev.TotalShare.Mul(pricePerShare)
+	if product == nil || product.Int == nil {
+		log.Warn("[vault] product is nil, cannot compute balance position")
+		return nil
+	}
+	balancePosition := product.Div(&t.Decimals) // total_shares * price_per_share
+
+	id := utils.GenerateId(ev.VaultKey.String(), ev.Authority.String())
+	accountVaultPosition := subgraph.AccountVaultPosition{ID: id}
+	ok, err := accountVaultPosition.Load(ctx, db)
+	if err != nil {
+		return fmt.Errorf("[vault] failed to load vault position: %w", err)
+	}
+	if ok {
+		accountVaultPosition.BalanceShares = vault.TotalShare
+		balanceTokens := GetBalanceTokens(&accountVaultPosition.BalanceTokens, &ev.AssetsToTransfer)
+		accountVaultPosition.BalanceTokens = *balanceTokens
+		balanceProfit := GetBalanceProfit(
+			&accountVaultPosition.BalanceShares,
+			&accountVaultPosition.BalanceProfit,
+			&accountVaultPosition.BalanceTokens,
+			&ev.AssetsToTransfer)
+		accountVaultPosition.BalanceProfit = *balanceProfit
+		accountVaultPosition.BalancePosition = *balancePosition
+		if err := accountVaultPosition.Save(ctx, db); err != nil {
+			return fmt.Errorf("[vault] failed to save vault position: %w", err)
+		}
+	}
+
+	return nil
+}
+
+func GetBalanceProfit(currentSharesBalance, currentProfit, currentAmount, withdrawAmount *types.BigInt) *types.BigInt {
+	zero := types.ZeroBigInt()
+	// Defensive: if any is nil, treat as zero
+	if currentSharesBalance == nil || currentSharesBalance.Int == nil ||
+		currentProfit == nil || currentProfit.Int == nil ||
+		currentAmount == nil || currentAmount.Int == nil ||
+		withdrawAmount == nil || withdrawAmount.Int == nil {
+		return &zero
+	}
+
+	if currentSharesBalance.Int.Sign() == 0 {
+		// User withdrawn all the shares
+		switch withdrawAmount.Int.Cmp(currentAmount.Int) {
+		case 1: // withdrawAmount > currentAmount → profit
+			return currentProfit.Plus(&types.BigInt{
+				Int: new(big.Int).Sub(withdrawAmount.Int, currentAmount.Int),
+			})
+		case -1: // withdrawAmount < currentAmount → loss
+			return currentProfit.Sub(&types.BigInt{
+				Int: new(big.Int).Sub(currentAmount.Int, withdrawAmount.Int),
+			})
+		default: // equal
+			return currentProfit
+		}
+	}
+
+	// User still has shares → return current profit
+	return currentProfit
+}
+
+func GetBalanceTokens(current, withdraw *types.BigInt) *types.BigInt {
+	zero := types.ZeroBigInt()
+	if current == nil || current.Int == nil || withdraw == nil || withdraw.Int == nil {
+		return &zero
+	}
+
+	if withdraw.Int.Cmp(current.Int) > 0 {
+		return &zero
+	}
+
+	return current.Sub(withdraw)
 }
 
 func UpdateCurrentSharePrice(ctx context.Context, db *gorm.DB, vaultId string, sharePrice types.BigInt) error {
