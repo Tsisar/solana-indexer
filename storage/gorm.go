@@ -61,6 +61,10 @@ func InitCoreModels(ctx context.Context, db *Gorm) error {
 		return fmt.Errorf("migration failed: %w", err)
 	}
 
+	if err := truncateEvents(db.DB); err != nil {
+		return fmt.Errorf("failed to truncate events: %w", err)
+	}
+
 	if err := db.SetHealth(ctx, "unknown", "Just started"); err != nil {
 		return fmt.Errorf("failed to set initial health status: %v", err)
 	}
@@ -70,6 +74,20 @@ func InitCoreModels(ctx context.Context, db *Gorm) error {
 			return fmt.Errorf("failed to save program address %s: %v", program, err)
 		}
 	}
+	return nil
+}
+
+func truncateEvents(db *gorm.DB) error {
+	tables := []string{
+		"core.events",
+	}
+
+	for _, table := range tables {
+		if err := db.Exec(fmt.Sprintf("TRUNCATE TABLE %s CASCADE;", table)).Error; err != nil {
+			return fmt.Errorf("failed to truncate %s: %w", table, err)
+		}
+	}
+
 	return nil
 }
 

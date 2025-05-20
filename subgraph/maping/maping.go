@@ -35,9 +35,7 @@ func Instruction(ctx context.Context, db *gorm.DB, event core.Event) error {
 	log.Debugf(`[Instruction] Parsed instruction:
 ────────────────────────────────────────────────────────────────────
 %s  |  Index: %d
-
 %s
-
 Slot:      %d
 Signature: %s
 ────────────────────────────────────────────────────────────────────
