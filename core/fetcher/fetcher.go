@@ -15,31 +15,13 @@ import (
 
 var client = rpc.New(config.App.RPCEndpoint) // RPC client used for querying the Solana blockchain
 
-// Start is the main entry point for the fetcher module.
-// It begins a fresh fetch cycle (not resuming) and closes the `done` channel on completion.
-func Start(ctx context.Context, db *storage.Gorm, done chan struct{}) {
-	defer close(done) // ensure the signal is sent even on error
-
-	if err := fetch(ctx, db, false); err != nil {
-		log.Fatalf("Fetcher error (start): %v", err)
-	}
-}
-
-// Resume restarts the fetcher with resume=true,
-// allowing it to continue from the last saved signature per program.
-func Resume(ctx context.Context, db *storage.Gorm, done chan struct{}) {
-	defer close(done)
-
-	if err := fetch(ctx, db, true); err != nil {
-		log.Fatalf("Fetcher error (resume): %v", err)
-	}
-}
-
-// fetch orchestrates the entire data fetching and parsing process:
+// Start orchestrates the entire data fetching and parsing process:
 // 1. Fetch historical signatures,
 // 2. Fetch full transaction JSONs,
 // 3. Parse saved transactions.
-func fetch(ctx context.Context, db *storage.Gorm, resume bool) error {
+func Start(ctx context.Context, db *storage.Gorm, resume bool, done chan struct{}) error {
+	defer close(done) // ensure the signal is sent even on error
+
 	if err := fetchHistoricalSignatures(ctx, db, resume); err != nil {
 		return fmt.Errorf("failed to fetch historical signatures: %w", err)
 	}
