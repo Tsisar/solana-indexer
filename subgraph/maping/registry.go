@@ -36,7 +36,7 @@ var registry = map[string]EventMapper{
 	"StrategyReportedEvent":                 mapStrategyReportedEvent, //Done
 	"UpdatedCurrentDebtForStrategyEvent":    mapUpdatedCurrentDebtForStrategyEvent,
 	"VaultAddStrategyEvent":                 mapVaultAddStrategyEvent, //Done
-	"VaultDepositEvent":                     mapVaultDepositEvent,
+	"VaultDepositEvent":                     mapVaultDepositEvent,     //Done
 	"VaultEmergencyWithdrawEvent":           mapVaultEmergencyWithdrawEvent,
 	"VaultInitEvent":                        mapVaultInitEvent, //Done
 	"VaultRemoveStrategyEvent":              mapVaultRemoveStrategyEvent,

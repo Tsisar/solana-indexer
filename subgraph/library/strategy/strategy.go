@@ -5,14 +5,13 @@ import (
 	"fmt"
 	"github.com/Tsisar/solana-indexer/storage/model/subgraph"
 	"github.com/Tsisar/solana-indexer/subgraph/events"
-
 	"gorm.io/gorm"
 )
 
 func Init(ctx context.Context, db *gorm.DB, ev events.StrategyInitEvent) error {
 	strategy := subgraph.Strategy{ID: ev.AccountKey.String()}
 	if _, err := strategy.Load(ctx, db); err != nil {
-		return fmt.Errorf("[Init] failed to load strategy: %w", err)
+		return fmt.Errorf("[strategy] failed to load strategy: %w", err)
 	}
 
 	strategy.StrategyType = ev.StrategyType
@@ -20,11 +19,35 @@ func Init(ctx context.Context, db *gorm.DB, ev events.StrategyInitEvent) error {
 	strategy.DepositPeriodEnds = ev.DepositPeriodEnds
 	strategy.LockPeriodEnds = ev.LockPeriodEnds
 	strategy.VaultID = ev.Vault.String()
-	strategy.Removed = false
-	strategy.LatestReportID = nil
+	strategy.UnderlyingMint = ev.UnderlyingMint.String()
+	strategy.UnderlyingTokenAcc = ev.UnderlyingTokenAcc.String()
+	strategy.UnderlyingDecimals = ev.UnderlyingDecimals
 
 	if err := strategy.Save(ctx, db); err != nil {
-		return fmt.Errorf("[Init] failed to save strategy: %w", err)
+		return fmt.Errorf("[strategy] failed to save strategy: %w", err)
 	}
+	return nil
+}
+
+func UpdateCurrentDebt(ctx context.Context, db *gorm.DB, ev events.UpdatedCurrentDebtForStrategyEvent) error {
+	strategy := subgraph.Strategy{ID: ev.StrategyKey.String()}
+	if _, err := strategy.Load(ctx, db); err != nil {
+		return fmt.Errorf("[strategy] failed to load strategy: %w", err)
+	}
+	strategy.CurrentDebt = ev.NewDebt
+	if err := strategy.Save(ctx, db); err != nil {
+		return fmt.Errorf("[strategy] failed to save strategy: %w", err)
+	}
+
+	vault := subgraph.Vault{ID: ev.VaultKey.String()}
+	if _, err := vault.Load(ctx, db); err != nil {
+		return fmt.Errorf("[strategy] failed to load vault: %w", err)
+	}
+	vault.TotalDebt = ev.TotalDebt
+	vault.TotalIdle = ev.TotalIdle
+	if err := vault.Save(ctx, db); err != nil {
+		return fmt.Errorf("[strategy] failed to save vault: %w", err)
+	}
+
 	return nil
 }

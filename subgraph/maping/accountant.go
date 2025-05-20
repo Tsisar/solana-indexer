@@ -12,7 +12,7 @@ import (
 )
 
 func mapEntryFeeUpdatedEvent(ctx context.Context, db *gorm.DB, event core.Event) error {
-	log.Infof("Mapping EntryFeeUpdatedEvent: %s", event.TransactionSignature)
+	log.Infof("[mapping] EntryFeeUpdatedEvent: %s", event.TransactionSignature)
 	var ev events.EntryFeeUpdatedEvent
 	if err := json.Unmarshal(event.JsonEv, &ev); err != nil {
 		return fmt.Errorf("failed to decode EntryFeeUpdatedEvent: %w", err)
@@ -24,7 +24,7 @@ func mapEntryFeeUpdatedEvent(ctx context.Context, db *gorm.DB, event core.Event)
 }
 
 func mapPerformanceFeeUpdatedEvent(ctx context.Context, db *gorm.DB, event core.Event) error {
-	log.Infof("Mapping PerformanceFeeUpdatedEvent: %s", event.TransactionSignature)
+	log.Infof("[mapping] PerformanceFeeUpdatedEvent: %s", event.TransactionSignature)
 	var ev events.PerformanceFeeUpdatedEvent
 	if err := json.Unmarshal(event.JsonEv, &ev); err != nil {
 		return fmt.Errorf("failed to decode PerformanceFeeUpdatedEvent: %w", err)
@@ -36,7 +36,7 @@ func mapPerformanceFeeUpdatedEvent(ctx context.Context, db *gorm.DB, event core.
 }
 
 func mapRedemptionFeeUpdatedEvent(ctx context.Context, db *gorm.DB, event core.Event) error {
-	log.Infof("Mapping RedemptionFeeUpdatedEvent: %s", event.TransactionSignature)
+	log.Infof("[mapping] RedemptionFeeUpdatedEvent: %s", event.TransactionSignature)
 	var ev events.RedemptionFeeUpdatedEvent
 	if err := json.Unmarshal(event.JsonEv, &ev); err != nil {
 		return fmt.Errorf("failed to decode RedemptionFeeUpdatedEvent: %w", err)

@@ -240,28 +240,3 @@ func CreateShareTokenData(ctx context.Context, db *gorm.DB, ev events.StrategyRe
 
 	return nil
 }
-
-func UpdateCurrentSharePrice(ctx context.Context, db *gorm.DB, ev events.StrategyReportedEvent) error {
-	log.Infof("[updateCurrentSharePrice] Updating current share price...")
-	vault := subgraph.Vault{ID: ev.VaultKey.String()}
-	ok, err := vault.Load(ctx, db)
-	if err != nil || !ok {
-		return fmt.Errorf("[updateCurrentSharePrice] failed to load vault: %w", err)
-	}
-	vault.CurrentSharePrice = ev.SharePrice
-	if err := vault.Save(ctx, db); err != nil {
-		return fmt.Errorf("[updateCurrentSharePrice] failed to save vault: %w", err)
-	}
-
-	token := subgraph.Token{ID: vault.ShareTokenID}
-	ok, err = token.Load(ctx, db)
-	if err != nil || !ok {
-		return fmt.Errorf("[updateCurrentSharePrice] failed to load token: %w", err)
-	}
-	token.CurrentPrice = ev.SharePrice
-	if err := token.Save(ctx, db); err != nil {
-		return fmt.Errorf("[updateCurrentSharePrice] failed to save token: %w", err)
-	}
-
-	return nil
-}

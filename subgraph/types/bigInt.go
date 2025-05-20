@@ -111,6 +111,13 @@ func (b *BigInt) Mul(other *BigInt) *BigInt {
 	return &BigInt{Int: new(big.Int).Mul(b.Int, other.Int)}
 }
 
+func (b *BigInt) Div(other *BigInt) *BigInt {
+	if b == nil || b.Int == nil || other == nil || other.Int == nil || other.Int.Sign() == 0 {
+		return &BigInt{Int: nil}
+	}
+	return &BigInt{Int: new(big.Int).Div(b.Int, other.Int)}
+}
+
 // Conversion
 
 func (b *BigInt) ToBigDecimal() *BigDecimal {
