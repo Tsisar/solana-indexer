@@ -37,7 +37,7 @@ func main() {
 		}
 	}()
 
-	resume := false // TODO: move to config
+	canResume := false // TODO: move to config
 
 	for {
 		ctx, cancel := context.WithCancel(context.Background())
@@ -45,6 +45,7 @@ func main() {
 		errChan := make(chan error, 100)
 		wsReady := make(chan struct{})
 		fetchDone := make(chan struct{})
+		parseDone := make(chan struct{})
 		realtimeStream := make(chan string, 1000)
 
 		go func() {
@@ -54,48 +55,56 @@ func main() {
 			}
 		}()
 
+		// Wait for either error or WebSocket ready
 		select {
-		case <-ctx.Done():
-			break
+		case <-wsReady:
+			log.Info("[Main] WS ready, starting fetcher...")
+			go func() {
+				if err := fetcher.Start(ctx, db, canResume, fetchDone); err != nil {
+					errChan <- err
+				}
+			}()
 		case err := <-errChan:
 			subgraph.MapError(appCtx, db, err)
 			log.Errorf("[Main] Listener error: %v", err)
 			cancel()
-		case <-wsReady:
-			log.Info("[Main] WS ready, starting fetcher...")
-			go func() {
-				if err := fetcher.Start(ctx, db, resume, fetchDone); err != nil {
-					errChan <- err
-				}
-			}()
+			goto waitAndRestart
+		case <-ctx.Done():
+			goto waitAndRestart
 		}
 
 		select {
-		case <-ctx.Done():
-			break
+		case <-fetchDone:
+			log.Info("[Main] Fetcher done, starting parser...")
+			go func() {
+				if err := parser.Start(ctx, db, canResume, parseDone, realtimeStream); err != nil {
+					errChan <- err
+				}
+			}()
 		case err := <-errChan:
 			subgraph.MapError(appCtx, db, err)
 			log.Errorf("[Main] Fetcher error: %v", err)
 			cancel()
-		case <-fetchDone:
-			log.Info("[Main] Fetcher done, starting parser...")
-			go func() {
-				if err := parser.Start(ctx, db, resume, realtimeStream); err != nil {
-					errChan <- err
-				}
-			}()
+			goto waitAndRestart
+		case <-ctx.Done():
+			goto waitAndRestart
 		}
 
 		select {
-		case <-ctx.Done():
+		case <-parseDone:
+			log.Info("[Main] Parser done, mark canResume flag as true")
+			canResume = true
 		case err := <-errChan:
 			subgraph.MapError(appCtx, db, err)
 			log.Errorf("[Main] Parser error: %v", err)
 			cancel()
+			goto waitAndRestart
+		case <-ctx.Done():
+			goto waitAndRestart
 		}
 
-		resume = true
-		log.Info("[Main] restarting full cycle in 5 seconds...")
+	waitAndRestart:
+		log.Info("[Main] Restarting full cycle in 5 seconds...")
 		time.Sleep(5 * time.Second)
 	}
 }

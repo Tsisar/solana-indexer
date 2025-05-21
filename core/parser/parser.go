@@ -12,19 +12,20 @@ import (
 // Start processes all unparsed transactions from the DB
 // and then continues parsing from the real-time stream.
 // Returns error if any transaction fails to parse.
-func Start(ctx context.Context, db *storage.Gorm, resume bool, in <-chan string) error {
+func Start(ctx context.Context, db *storage.Gorm, resume bool, done chan struct{}, in <-chan string) error {
 	// Load list of signatures that are not parsed
 	signatures, err := db.GetOrderedNoParsedSignatures(ctx, resume)
 	if err != nil {
 		return fmt.Errorf("[parser] failed to load signatures to parse: %w", err)
 	}
-	log.Infof("[parser]Found %d transactions to parse", len(signatures))
+	log.Infof("[parser] Found %d transactions to parse", len(signatures))
 
 	for _, sig := range signatures {
 		if err := parseOneTransaction(ctx, db, resume, sig); err != nil {
 			return fmt.Errorf("[parser] failed to parse transaction %s: %w", sig, err)
 		}
 	}
+	done <- struct{}{}
 
 	log.Infof("[parser] done with DB, switching to real-time stream...")
 
