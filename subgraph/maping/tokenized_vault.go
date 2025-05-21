@@ -235,7 +235,9 @@ func mapWithdrawalRequestCanceledEvent(ctx context.Context, db *gorm.DB, event c
 	if err := json.Unmarshal(event.JsonEv, &ev); err != nil {
 		return fmt.Errorf("[maping] failed to decode WithdrawalRequestCanceledEvent: %w", err)
 	}
-	// TODO: implement mapping logic
+	if err := vault.WithdrawalRequestCanceled(ctx, db, ev); err != nil {
+		return fmt.Errorf("[maping] failed to cancel withdrawal request: %w", err)
+	}
 	return nil
 }
 
@@ -245,7 +247,9 @@ func mapWithdrawalRequestFulfilledEvent(ctx context.Context, db *gorm.DB, event 
 	if err := json.Unmarshal(event.JsonEv, &ev); err != nil {
 		return fmt.Errorf("[maping] failed to decode WithdrawalRequestFulfilledEvent: %w", err)
 	}
-	// TODO: implement mapping logic
+	if err := vault.WithdrawalRequestFulfilled(ctx, db, ev); err != nil {
+		return fmt.Errorf("[maping] failed to fulfill withdrawal request: %w", err)
+	}
 	return nil
 }
 
@@ -255,6 +259,8 @@ func mapWithdrawalRequestedEvent(ctx context.Context, db *gorm.DB, event core.Ev
 	if err := json.Unmarshal(event.JsonEv, &ev); err != nil {
 		return fmt.Errorf("[maping] failed to decode WithdrawalRequestedEvent: %w", err)
 	}
-	// TODO: implement mapping logic
+	if err := vault.WithdrawalRequested(ctx, db, ev); err != nil {
+		return fmt.Errorf("[maping] failed to process withdrawal request: %w", err)
+	}
 	return nil
 }

@@ -51,9 +51,9 @@ var registry = map[string]EventMapper{
 	"VaultUpdateWhitelistedOnlyEvent":       mapVaultUpdateWhitelistedOnlyEvent,
 	"VaultWithdrawlEvent":                   mapVaultWithdrawlEvent, //Done
 	"WhitelistUpdatedEvent":                 mapWhitelistUpdatedEvent,
-	"WithdrawalRequestCanceledEvent":        mapWithdrawalRequestCanceledEvent,
-	"WithdrawalRequestFulfilledEvent":       mapWithdrawalRequestFulfilledEvent,
-	"WithdrawalRequestedEvent":              mapWithdrawalRequestedEvent,
+	"WithdrawalRequestCanceledEvent":        mapWithdrawalRequestCanceledEvent,  //Done
+	"WithdrawalRequestFulfilledEvent":       mapWithdrawalRequestFulfilledEvent, //Done
+	"WithdrawalRequestedEvent":              mapWithdrawalRequestedEvent,        //Done
 }
 
 func mapEvents(ctx context.Context, db *gorm.DB, event core.Event) error {

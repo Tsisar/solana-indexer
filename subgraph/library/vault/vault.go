@@ -400,3 +400,105 @@ func ShutDown(ctx context.Context, db *gorm.DB, ev events.VaultShutDownEvent) er
 	}
 	return nil
 }
+
+func WithdrawalRequested(ctx context.Context, db *gorm.DB, ev events.WithdrawalRequestedEvent) error {
+	id := utils.GenerateId(ev.User.String(), ev.Vault.String(), ev.Index.String())
+
+	withdrawalRequest := subgraph.WithdrawalRequest{ID: id}
+	if _, err := withdrawalRequest.Load(ctx, db); err != nil {
+		return fmt.Errorf("[vault] failed to load withdrawal request: %w", err)
+	}
+
+	withdrawalRequest.User = ev.User.String()
+	withdrawalRequest.VaultID = ev.Vault.String()
+	withdrawalRequest.Recipient = ev.Recipient.String()
+	withdrawalRequest.Shares = ev.Shares
+	withdrawalRequest.Amount = ev.Amount
+	withdrawalRequest.MaxLoss = ev.MaxLoss
+	withdrawalRequest.FeeShares = ev.FeeShares
+	withdrawalRequest.Open = true
+	withdrawalRequest.Status = "open"
+	withdrawalRequest.Timestamp = ev.Timestamp
+	withdrawalRequest.PriorityFees = &ev.PriorityFee
+
+	if err := withdrawalRequest.Save(ctx, db); err != nil {
+		return fmt.Errorf("[vault] failed to save withdrawal request: %w", err)
+	}
+
+	if err := updatePriorityFeeOnVault(ctx, db, ev.Vault.String(), &ev.PriorityFee, "open"); err != nil {
+		return fmt.Errorf("[vault] failed to update priority fee on vault: %w", err)
+	}
+
+	return nil
+}
+
+func WithdrawalRequestFulfilled(ctx context.Context, db *gorm.DB, ev events.WithdrawalRequestFulfilledEvent) error {
+	id := utils.GenerateId(ev.User.String(), ev.Vault.String(), ev.Index.String())
+
+	withdrawalRequest := subgraph.WithdrawalRequest{ID: id}
+	ok, err := withdrawalRequest.Load(ctx, db)
+	if err != nil {
+		return fmt.Errorf("[vault] failed to load withdrawal request: %w", err)
+	}
+	if !ok {
+		log.Warnf("[vault] withdrawal request not found: %s", id)
+		return nil
+	}
+
+	withdrawalRequest.Status = "fulfilled"
+	withdrawalRequest.Open = false
+	withdrawalRequest.Timestamp = ev.Timestamp
+	withdrawalRequest.Amount = ev.Amount
+
+	if err := withdrawalRequest.Save(ctx, db); err != nil {
+		return fmt.Errorf("[vault] failed to save withdrawal request: %w", err)
+	}
+
+	if err := updatePriorityFeeOnVault(ctx, db, ev.Vault.String(), withdrawalRequest.PriorityFees, "fulfilled"); err != nil {
+		return fmt.Errorf("[vault] failed to update priority fee on vault: %w", err)
+	}
+
+	return nil
+}
+
+func WithdrawalRequestCanceled(ctx context.Context, db *gorm.DB, ev events.WithdrawalRequestCanceledEvent) error {
+	id := utils.GenerateId(ev.User.String(), ev.Vault.String(), ev.Index.String())
+
+	withdrawalRequest := subgraph.WithdrawalRequest{ID: id}
+	ok, err := withdrawalRequest.Load(ctx, db)
+	if err != nil {
+		return fmt.Errorf("[vault] failed to load withdrawal request: %w", err)
+	}
+	if !ok {
+		log.Warnf("[vault] withdrawal request not found: %s", id)
+		return nil
+	}
+
+	withdrawalRequest.Status = "canceled"
+	withdrawalRequest.Open = false
+	withdrawalRequest.Timestamp = ev.Timestamp
+
+	if err := withdrawalRequest.Save(ctx, db); err != nil {
+		return fmt.Errorf("[vault] failed to save withdrawal request: %w", err)
+	}
+
+	if err := updatePriorityFeeOnVault(ctx, db, ev.Vault.String(), withdrawalRequest.PriorityFees, "canceled"); err != nil {
+		return fmt.Errorf("[vault] failed to update priority fee on vault: %w", err)
+	}
+
+	return nil
+}
+
+func updatePriorityFeeOnVault(ctx context.Context, db *gorm.DB, vaultID string, fee *types.BigInt, status string) error {
+	vault := subgraph.Vault{ID: vaultID}
+	if _, err := vault.Load(ctx, db); err != nil {
+		return fmt.Errorf("[vault] failed to load vault: %w", err)
+	}
+
+	if status == "open" {
+		vault.TotalPriorityFees = utils.Val(vault.TotalPriorityFees.Plus(fee))
+	} else {
+		vault.TotalPriorityFees = utils.Val(vault.TotalPriorityFees.Sub(fee))
+	}
+	return nil
+}
