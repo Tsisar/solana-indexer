@@ -51,7 +51,7 @@ func InitGorm() (*Gorm, error) {
 
 // InitCoreModels runs migrations for the core models used in the indexer,
 // sets initial health status, and stores configured program addresses in the database.
-func InitCoreModels(ctx context.Context, db *Gorm) error {
+func InitCoreModels(ctx context.Context, db *Gorm, resume bool) error {
 	if err := db.DB.AutoMigrate(
 		&core.Transaction{},
 		&core.Program{},
@@ -61,8 +61,10 @@ func InitCoreModels(ctx context.Context, db *Gorm) error {
 		return fmt.Errorf("migration failed: %w", err)
 	}
 
-	if err := truncateEvents(db.DB); err != nil {
-		return fmt.Errorf("failed to truncate events: %w", err)
+	if !resume {
+		if err := truncateEvents(db.DB); err != nil {
+			return fmt.Errorf("failed to truncate events: %w", err)
+		}
 	}
 
 	if err := db.SetHealth(ctx, "unknown", "Just started"); err != nil {
@@ -93,7 +95,7 @@ func truncateEvents(db *gorm.DB) error {
 
 // InitSubgraphModels runs migrations for subgraph-specific models.
 // It also creates and validates the `latest_report_id` foreign key.
-func InitSubgraphModels(ctx context.Context, db *Gorm) error {
+func InitSubgraphModels(ctx context.Context, db *Gorm, resume bool) error {
 	if err := db.DB.AutoMigrate(
 		&subgraph.Meta{},
 		&subgraph.BlockInfo{},
@@ -125,8 +127,10 @@ func InitSubgraphModels(ctx context.Context, db *Gorm) error {
 		return fmt.Errorf("migration failed: %w", err)
 	}
 
-	if err := truncateSubgraphTables(db.DB); err != nil {
-		return fmt.Errorf("failed to truncate subgraph tables: %w", err)
+	if !resume {
+		if err := truncateSubgraphTables(db.DB); err != nil {
+			return fmt.Errorf("failed to truncate subgraph tables: %w", err)
+		}
 	}
 
 	if err := migrateWithLatestReport(db.DB); err != nil {

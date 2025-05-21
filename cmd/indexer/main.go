@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"github.com/Tsisar/extended-log-go/log"
+	"github.com/Tsisar/solana-indexer/core/config"
 	"github.com/Tsisar/solana-indexer/core/fetcher"
 	"github.com/Tsisar/solana-indexer/core/healthchecker"
 	"github.com/Tsisar/solana-indexer/core/listener"
@@ -15,6 +16,10 @@ import (
 func main() {
 	log.Debug("[Main] Starting Solana Indexer...")
 	appCtx := context.Background()
+	resumeFromLastSignature := config.App.ResumeFromLastSignature
+	if resumeFromLastSignature {
+		log.Info("Main] Resuming from last saved signature...")
+	}
 
 	db, err := storage.InitGorm()
 	if err != nil {
@@ -22,11 +27,11 @@ func main() {
 	}
 	defer db.Close()
 
-	if err := storage.InitCoreModels(appCtx, db); err != nil {
+	if err := storage.InitCoreModels(appCtx, db, resumeFromLastSignature); err != nil {
 		log.Fatalf("[Main] Failed to init DB: %v", err)
 	}
 
-	if err := storage.InitSubgraphModels(appCtx, db); err != nil {
+	if err := storage.InitSubgraphModels(appCtx, db, resumeFromLastSignature); err != nil {
 		log.Fatalf("[Main] Failed to init subgraph DB: %v", err)
 	}
 
@@ -37,15 +42,12 @@ func main() {
 		}
 	}()
 
-	canResume := false // TODO: move to config
-
 	for {
 		ctx, cancel := context.WithCancel(context.Background())
-
-		errChan := make(chan error, 100)
-		wsReady := make(chan struct{})
-		fetchDone := make(chan struct{})
-		parseDone := make(chan struct{})
+		errChan := make(chan error, 1)
+		wsReady := make(chan struct{}, 1)
+		fetchDone := make(chan struct{}, 1)
+		parseDone := make(chan struct{}, 1)
 		realtimeStream := make(chan string, 1000)
 
 		go func() {
@@ -55,52 +57,60 @@ func main() {
 			}
 		}()
 
-		// Wait for either error or WebSocket ready
 		select {
-		case <-wsReady:
-			log.Info("[Main] WS ready, starting fetcher...")
-			go func() {
-				if err := fetcher.Start(ctx, db, canResume, fetchDone); err != nil {
-					errChan <- err
-				}
-			}()
 		case err := <-errChan:
 			subgraph.MapError(appCtx, db, err)
 			log.Errorf("[Main] Listener error: %v", err)
 			cancel()
 			goto waitAndRestart
+		case <-wsReady:
+			log.Info("[Main] WS ready, starting fetcher...")
 		case <-ctx.Done():
 			goto waitAndRestart
 		}
 
+		go func() {
+			if err := fetcher.Start(ctx, db, resumeFromLastSignature, fetchDone); err != nil {
+				errChan <- err
+			}
+		}()
 		select {
-		case <-fetchDone:
-			log.Info("[Main] Fetcher done, starting parser...")
-			go func() {
-				if err := parser.Start(ctx, db, canResume, parseDone, realtimeStream); err != nil {
-					errChan <- err
-				}
-			}()
 		case err := <-errChan:
 			subgraph.MapError(appCtx, db, err)
 			log.Errorf("[Main] Fetcher error: %v", err)
 			cancel()
 			goto waitAndRestart
+		case <-fetchDone:
+			log.Info("[Main] Fetcher done, starting parser for historical data...")
 		case <-ctx.Done():
 			goto waitAndRestart
 		}
 
+		go func() {
+			if err := parser.Start(ctx, db, resumeFromLastSignature, parseDone, realtimeStream); err != nil {
+				errChan <- err
+			}
+		}()
 		select {
-		case <-parseDone:
-			log.Info("[Main] Parser done, mark canResume flag as true")
-			canResume = true
 		case err := <-errChan:
 			subgraph.MapError(appCtx, db, err)
 			log.Errorf("[Main] Parser error: %v", err)
 			cancel()
 			goto waitAndRestart
+		case <-parseDone:
+			log.Info("[Main] Historical parsing complete, entering streaming mode")
+			resumeFromLastSignature = true
 		case <-ctx.Done():
 			goto waitAndRestart
+		}
+
+		select {
+		case err := <-errChan:
+			subgraph.MapError(appCtx, db, err)
+			log.Errorf("[Main] Runtime error: %v", err)
+			cancel()
+		case <-ctx.Done():
+			cancel()
 		}
 
 	waitAndRestart:

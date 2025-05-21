@@ -36,10 +36,9 @@ func Start(ctx context.Context, db *storage.Gorm, resume bool, done chan struct{
 // once the last known signature is reached.
 func fetchHistoricalSignatures(ctx context.Context, db *storage.Gorm, resume bool) error {
 	programs := config.App.Programs
-	r := config.App.EnableSignatureResume || resume
 
 	for _, program := range programs {
-		sigs, err := fetchHistoricalSignaturesForAddress(ctx, db, program, r)
+		sigs, err := fetchHistoricalSignaturesForAddress(ctx, db, program, resume)
 		if err != nil {
 			return fmt.Errorf("[fetcher] failed to fetch signatures for %s: %w", program, err)
 		}
