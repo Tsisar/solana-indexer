@@ -166,7 +166,9 @@ func mapVaultUpdateMinTotalIdleEvent(ctx context.Context, db *gorm.DB, event cor
 	if err := json.Unmarshal(event.JsonEv, &ev); err != nil {
 		return fmt.Errorf("[maping] failed to decode VaultUpdateMinTotalIdleEvent: %w", err)
 	}
-	// TODO: implement mapping logic
+	if err := vault.UpdateMinTotalIdle(ctx, db, ev); err != nil {
+		return fmt.Errorf("[maping] failed to update min total idle: %w", err)
+	}
 	return nil
 }
 
@@ -176,7 +178,9 @@ func mapVaultUpdateMinUserDepositEvent(ctx context.Context, db *gorm.DB, event c
 	if err := json.Unmarshal(event.JsonEv, &ev); err != nil {
 		return fmt.Errorf("[maping] failed to decode VaultUpdateMinUserDepositEvent: %w", err)
 	}
-	// TODO: implement mapping logic
+	if err := vault.UpdateMinUserDeposit(ctx, db, ev); err != nil {
+		return fmt.Errorf("[maping] failed to update min user deposit: %w", err)
+	}
 	return nil
 }
 
@@ -186,7 +190,9 @@ func mapVaultUpdateProfitMaxUnlockTimeEvent(ctx context.Context, db *gorm.DB, ev
 	if err := json.Unmarshal(event.JsonEv, &ev); err != nil {
 		return fmt.Errorf("[maping] failed to decode VaultUpdateProfitMaxUnlockTimeEvent: %w", err)
 	}
-	// TODO: implement mapping logic
+	if err := vault.UpdateProfitMaxUnlockTime(ctx, db, ev); err != nil {
+		return fmt.Errorf("[maping] failed to update profit max unlock time: %w", err)
+	}
 	return nil
 }
 

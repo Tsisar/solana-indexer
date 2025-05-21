@@ -586,3 +586,66 @@ func UpdateDirectWithdrawEnabled(ctx context.Context, db *gorm.DB, ev events.Vau
 
 	return nil
 }
+
+func UpdateMinTotalIdle(ctx context.Context, db *gorm.DB, ev events.VaultUpdateMinTotalIdleEvent) error {
+	vault := subgraph.Vault{ID: ev.VaultKey.String()}
+	ok, err := vault.Load(ctx, db)
+	if err != nil {
+		return fmt.Errorf("[vault] failed to load vault: %w", err)
+	}
+	if !ok {
+		log.Warnf("[vault] vault not found: %s", ev.VaultKey.String())
+		return nil
+	}
+
+	vault.MinTotalIdle = ev.NewMinTotalIdle
+	vault.LastUpdate = ev.Timestamp
+
+	if err := vault.Save(ctx, db); err != nil {
+		return fmt.Errorf("[vault] failed to save vault: %w", err)
+	}
+
+	return nil
+}
+
+func UpdateProfitMaxUnlockTime(ctx context.Context, db *gorm.DB, ev events.VaultUpdateProfitMaxUnlockTimeEvent) error {
+	vault := subgraph.Vault{ID: ev.VaultKey.String()}
+	ok, err := vault.Load(ctx, db)
+	if err != nil {
+		return fmt.Errorf("[vault] failed to load vault: %w", err)
+	}
+	if !ok {
+		log.Warnf("[vault] vault not found: %s", ev.VaultKey.String())
+		return nil
+	}
+
+	vault.ProfitMaxUnlockTime = ev.NewProfitMaxUnlockTime
+	vault.LastUpdate = ev.Timestamp
+
+	if err := vault.Save(ctx, db); err != nil {
+		return fmt.Errorf("[vault] failed to save vault: %w", err)
+	}
+
+	return nil
+}
+
+func UpdateMinUserDeposit(ctx context.Context, db *gorm.DB, ev events.VaultUpdateMinUserDepositEvent) error {
+	vault := subgraph.Vault{ID: ev.VaultKey.String()}
+	ok, err := vault.Load(ctx, db)
+	if err != nil {
+		return fmt.Errorf("[vault] failed to load vault: %w", err)
+	}
+	if !ok {
+		log.Warnf("[vault] vault not found: %s", ev.VaultKey.String())
+		return nil
+	}
+
+	vault.MinUserDeposit = ev.NewMinUserDeposit
+	vault.LastUpdate = ev.Timestamp
+
+	if err := vault.Save(ctx, db); err != nil {
+		return fmt.Errorf("[vault] failed to save vault: %w", err)
+	}
+
+	return nil
+}

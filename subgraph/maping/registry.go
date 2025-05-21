@@ -44,12 +44,12 @@ var registry = map[string]EventMapper{
 	"VaultUpdateAccountantEvent":            mapVaultUpdateAccountantEvent,            //Done
 	"VaultUpdateDepositLimitEvent":          mapVaultUpdateDepositLimitEvent,          //Done
 	"VaultUpdateDirectWithdrawEnabledEvent": mapVaultUpdateDirectWithdrawEnabledEvent, //Done
-	"VaultUpdateMinTotalIdleEvent":          mapVaultUpdateMinTotalIdleEvent,
-	"VaultUpdateMinUserDepositEvent":        mapVaultUpdateMinUserDepositEvent,
-	"VaultUpdateProfitMaxUnlockTimeEvent":   mapVaultUpdateProfitMaxUnlockTimeEvent,
-	"VaultUpdateUserDepositLimitEvent":      mapVaultUpdateUserDepositLimitEvent, //Done
-	"VaultUpdateWhitelistedOnlyEvent":       mapVaultUpdateWhitelistedOnlyEvent,  //Done
-	"VaultWithdrawlEvent":                   mapVaultWithdrawlEvent,              //Done
+	"VaultUpdateMinTotalIdleEvent":          mapVaultUpdateMinTotalIdleEvent,          //Done
+	"VaultUpdateMinUserDepositEvent":        mapVaultUpdateMinUserDepositEvent,        //Done
+	"VaultUpdateProfitMaxUnlockTimeEvent":   mapVaultUpdateProfitMaxUnlockTimeEvent,   //Done
+	"VaultUpdateUserDepositLimitEvent":      mapVaultUpdateUserDepositLimitEvent,      //Done
+	"VaultUpdateWhitelistedOnlyEvent":       mapVaultUpdateWhitelistedOnlyEvent,       //Done
+	"VaultWithdrawlEvent":                   mapVaultWithdrawlEvent,                   //Done
 	"WhitelistUpdatedEvent":                 mapWhitelistUpdatedEvent,
 	"WithdrawalRequestCanceledEvent":        mapWithdrawalRequestCanceledEvent,  //Done
 	"WithdrawalRequestFulfilledEvent":       mapWithdrawalRequestFulfilledEvent, //Done
