@@ -102,9 +102,11 @@ func mapVaultRemoveStrategyEvent(ctx context.Context, db *gorm.DB, event core.Ev
 	log.Infof("[maping] VaultRemoveStrategyEvent: %s", event.TransactionSignature)
 	var ev events.VaultRemoveStrategyEvent
 	if err := json.Unmarshal(event.JsonEv, &ev); err != nil {
-		return fmt.Errorf("failed to decode VaultRemoveStrategyEvent: %w", err)
+		return fmt.Errorf("[maping] failed to decode VaultRemoveStrategyEvent: %w", err)
 	}
-	// TODO: implement mapping logic
+	if err := strategy.Remove(ctx, db, ev); err != nil {
+		return fmt.Errorf("[maping] failed to remove strategy: %w", err)
+	}
 	return nil
 }
 
@@ -127,7 +129,9 @@ func mapVaultUpdateAccountantEvent(ctx context.Context, db *gorm.DB, event core.
 	if err := json.Unmarshal(event.JsonEv, &ev); err != nil {
 		return fmt.Errorf("[maping] failed to decode VaultUpdateAccountantEvent: %w", err)
 	}
-	// TODO: implement mapping logic
+	if err := vault.UpdateAccountant(ctx, db, ev); err != nil {
+		return fmt.Errorf("[maping] failed to update accountant: %w", err)
+	}
 	return nil
 }
 
@@ -150,7 +154,9 @@ func mapVaultUpdateDirectWithdrawEnabledEvent(ctx context.Context, db *gorm.DB, 
 	if err := json.Unmarshal(event.JsonEv, &ev); err != nil {
 		return fmt.Errorf("[maping] failed to decode VaultUpdateDirectWithdrawEnabledEvent: %w", err)
 	}
-	// TODO: implement mapping logic
+	if err := vault.UpdateDirectWithdrawEnabled(ctx, db, ev); err != nil {
+		return fmt.Errorf("[maping] failed to update direct withdraw enabled: %w", err)
+	}
 	return nil
 }
 
@@ -190,7 +196,9 @@ func mapVaultUpdateUserDepositLimitEvent(ctx context.Context, db *gorm.DB, event
 	if err := json.Unmarshal(event.JsonEv, &ev); err != nil {
 		return fmt.Errorf("[maping] failed to decode VaultUpdateUserDepositLimitEvent: %w", err)
 	}
-	// TODO: implement mapping logic
+	if err := vault.UpdateUserDepositLimit(ctx, db, ev); err != nil {
+		return fmt.Errorf("[maping] failed to update user deposit limit: %w", err)
+	}
 	return nil
 }
 
@@ -200,7 +208,9 @@ func mapVaultUpdateWhitelistedOnlyEvent(ctx context.Context, db *gorm.DB, event 
 	if err := json.Unmarshal(event.JsonEv, &ev); err != nil {
 		return fmt.Errorf("[maping] failed to decode VaultUpdateWhitelistedOnlyEvent: %w", err)
 	}
-	// TODO: implement mapping logic
+	if err := vault.UpdateWhiteListOnly(ctx, db, ev); err != nil {
+		return fmt.Errorf("[maping] failed to update whitelist only: %w", err)
+	}
 	return nil
 }
 

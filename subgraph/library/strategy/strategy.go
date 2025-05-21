@@ -228,3 +228,49 @@ func getTotalAllocationAfterAfterOrcaSwap(ctx context.Context, db *gorm.DB, ev e
 	}
 	return &vault.TotalAllocation, nil
 }
+
+func InitOrca(ctx context.Context, db *gorm.DB, ev events.OrcaInitEvent) error {
+	strategy := subgraph.Strategy{ID: ev.AccountKey.String()}
+	ok, err := strategy.Load(ctx, db)
+	if err != nil {
+		return fmt.Errorf("[strategy] failed to load strategy: %w", err)
+	}
+	if !ok {
+		log.Warnf("[strategy] strategy not found: %s", ev.AccountKey.String())
+		return nil
+	}
+
+	tokenMint := subgraph.Token{ID: ev.AssetMint.String()}
+	if _, err := tokenMint.Load(ctx, db); err != nil {
+		return fmt.Errorf("[strategy] failed to load token: %w", err)
+	}
+	tokenMint.Decimals = ev.AssetDecimals
+	if err := tokenMint.Save(ctx, db); err != nil {
+		return fmt.Errorf("[strategy] failed to save token: %w", err)
+	}
+
+	if err := strategy.Save(ctx, db); err != nil {
+		return fmt.Errorf("[strategy] failed to save strategy: %w", err)
+	}
+	return nil
+}
+
+func Remove(ctx context.Context, db *gorm.DB, ev events.VaultRemoveStrategyEvent) error {
+	strategy := subgraph.Strategy{ID: ev.StrategyKey.String()}
+	ok, err := strategy.Load(ctx, db)
+	if err != nil {
+		return fmt.Errorf("[strategy] failed to load strategy: %w", err)
+	}
+	if !ok {
+		log.Warnf("[strategy] strategy not found: %s", ev.StrategyKey.String())
+		return nil
+	}
+	strategy.Removed = true
+	strategy.RemovedTimestamp = ev.RemovedAt
+
+	if err := strategy.Save(ctx, db); err != nil {
+		return fmt.Errorf("[strategy] failed to save strategy: %w", err)
+	}
+	return nil
+
+}

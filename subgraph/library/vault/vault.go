@@ -502,3 +502,87 @@ func updatePriorityFeeOnVault(ctx context.Context, db *gorm.DB, vaultID string, 
 	}
 	return nil
 }
+
+func UpdateWhiteListOnly(ctx context.Context, db *gorm.DB, ev events.VaultUpdateWhitelistedOnlyEvent) error {
+	vault := subgraph.Vault{ID: ev.VaultKey.String()}
+	ok, err := vault.Load(ctx, db)
+	if err != nil {
+		return fmt.Errorf("[vault] failed to load vault: %w", err)
+	}
+	if !ok {
+		log.Warnf("[vault] vault not found: %s", ev.VaultKey.String())
+		return nil
+	}
+
+	vault.WhitelistedOnly = ev.NewWhitelistedOnly
+	vault.LastUpdate = ev.Timestamp
+
+	if err := vault.Save(ctx, db); err != nil {
+		return fmt.Errorf("[vault] failed to save vault: %w", err)
+	}
+
+	return nil
+}
+
+func UpdateAccountant(ctx context.Context, db *gorm.DB, ev events.VaultUpdateAccountantEvent) error {
+	vault := subgraph.Vault{ID: ev.VaultKey.String()}
+	ok, err := vault.Load(ctx, db)
+	if err != nil {
+		return fmt.Errorf("[vault] failed to load vault: %w", err)
+	}
+	if !ok {
+		log.Warnf("[vault] vault not found: %s", ev.VaultKey.String())
+		return nil
+	}
+
+	vault.AccountantID = ev.NewAccountant.String()
+	vault.LastUpdate = ev.Timestamp
+
+	if err := vault.Save(ctx, db); err != nil {
+		return fmt.Errorf("[vault] failed to save vault: %w", err)
+	}
+
+	return nil
+}
+
+func UpdateUserDepositLimit(ctx context.Context, db *gorm.DB, ev events.VaultUpdateUserDepositLimitEvent) error {
+	vault := subgraph.Vault{ID: ev.VaultKey.String()}
+	ok, err := vault.Load(ctx, db)
+	if err != nil {
+		return fmt.Errorf("[vault] failed to load vault: %w", err)
+	}
+	if !ok {
+		log.Warnf("[vault] vault not found: %s", ev.VaultKey.String())
+		return nil
+	}
+
+	vault.UserDepositLimit = ev.NewUserDepositLimit
+	vault.LastUpdate = ev.Timestamp
+
+	if err := vault.Save(ctx, db); err != nil {
+		return fmt.Errorf("[vault] failed to save vault: %w", err)
+	}
+
+	return nil
+}
+
+func UpdateDirectWithdrawEnabled(ctx context.Context, db *gorm.DB, ev events.VaultUpdateDirectWithdrawEnabledEvent) error {
+	vault := subgraph.Vault{ID: ev.VaultKey.String()}
+	ok, err := vault.Load(ctx, db)
+	if err != nil {
+		return fmt.Errorf("[vault] failed to load vault: %w", err)
+	}
+	if !ok {
+		log.Warnf("[vault] vault not found: %s", ev.VaultKey.String())
+		return nil
+	}
+
+	vault.DirectWithdrawEnabled = ev.NewDirectWithdrawEnabled
+	vault.LastUpdate = ev.Timestamp
+
+	if err := vault.Save(ctx, db); err != nil {
+		return fmt.Errorf("[vault] failed to save vault: %w", err)
+	}
+
+	return nil
+}

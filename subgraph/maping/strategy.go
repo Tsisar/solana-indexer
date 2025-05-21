@@ -121,7 +121,9 @@ func mapOrcaInitEvent(ctx context.Context, db *gorm.DB, event core.Event) error 
 	if err := json.Unmarshal(event.JsonEv, &ev); err != nil {
 		return fmt.Errorf("failed to decode OrcaInitEvent: %w", err)
 	}
-	// TODO: implement mapping logic
+	if err := strategy.InitOrca(ctx, db, ev); err != nil {
+		return fmt.Errorf("failed to process OrcaInitEvent: %w", err)
+	}
 	return nil
 }
 
