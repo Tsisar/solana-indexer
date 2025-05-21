@@ -58,3 +58,18 @@ func FormatBigInt(b *types.BigInt) string {
 	}
 	return b.Int.String()
 }
+
+// Ptr returns a pointer to the given value of any type.
+func Ptr[T any](v T) *T {
+	return &v
+}
+
+// Val returns the dereferenced value of the given pointer,
+// or the zero value of T if the pointer is nil.
+func Val[T any](v *T) T {
+	if v != nil {
+		return *v
+	}
+	var zero T
+	return zero
+}

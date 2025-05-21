@@ -373,3 +373,30 @@ func UpdateCurrentSharePrice(ctx context.Context, db *gorm.DB, vaultId string, s
 
 	return nil
 }
+
+func UpdateDepositLimit(ctx context.Context, db *gorm.DB, ev events.VaultUpdateDepositLimitEvent) error {
+	vault := subgraph.Vault{ID: ev.VaultKey.String()}
+	if _, err := vault.Load(ctx, db); err != nil {
+		return fmt.Errorf("[vault] failed to load vault: %w", err)
+	}
+	vault.DepositLimit = ev.NewLimit
+	vault.LastUpdate = ev.Timestamp
+
+	if err := vault.Save(ctx, db); err != nil {
+		return fmt.Errorf("[vault] failed to save vault: %w", err)
+	}
+	return nil
+}
+
+func ShutDown(ctx context.Context, db *gorm.DB, ev events.VaultShutDownEvent) error {
+	vault := subgraph.Vault{ID: ev.VaultKey.String()}
+	if _, err := vault.Load(ctx, db); err != nil {
+		return fmt.Errorf("[vault] failed to load vault: %w", err)
+	}
+	vault.Shutdown = ev.Shutdown
+
+	if err := vault.Save(ctx, db); err != nil {
+		return fmt.Errorf("[vault] failed to save vault: %w", err)
+	}
+	return nil
+}

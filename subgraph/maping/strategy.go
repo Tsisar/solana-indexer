@@ -87,7 +87,9 @@ func mapHarvestAndReportDTFEvent(ctx context.Context, db *gorm.DB, event core.Ev
 	if err := json.Unmarshal(event.JsonEv, &ev); err != nil {
 		return fmt.Errorf("failed to decode HarvestAndReportDTFEvent: %w", err)
 	}
-	// TODO: implement mapping logic
+	if err := strategy.UpdateDTFReport(ctx, db, ev); err != nil {
+		return fmt.Errorf("failed to update DTF report: %w", err)
+	}
 	return nil
 }
 
@@ -107,7 +109,9 @@ func mapOrcaAfterSwapEvent(ctx context.Context, db *gorm.DB, event core.Event) e
 	if err := json.Unmarshal(event.JsonEv, &ev); err != nil {
 		return fmt.Errorf("failed to decode OrcaAfterSwapEvent: %w", err)
 	}
-	// TODO: implement mapping logic
+	if err := strategy.AfterOrcaSwap(ctx, db, ev); err != nil {
+		return fmt.Errorf("failed to process OrcaAfterSwapEvent: %w", err)
+	}
 	return nil
 }
 
@@ -127,7 +131,9 @@ func mapSetPerformanceFeeEvent(ctx context.Context, db *gorm.DB, event core.Even
 	if err := json.Unmarshal(event.JsonEv, &ev); err != nil {
 		return fmt.Errorf("failed to decode SetPerformanceFeeEvent: %w", err)
 	}
-	// TODO: implement mapping logic
+	if err := strategy.UpdatePerformanceFee(ctx, db, ev); err != nil {
+		return fmt.Errorf("failed to update performance fee: %w", err)
+	}
 	return nil
 }
 
@@ -137,7 +143,10 @@ func mapStrategyDeployFundsEvent(ctx context.Context, db *gorm.DB, event core.Ev
 	if err := json.Unmarshal(event.JsonEv, &ev); err != nil {
 		return fmt.Errorf("failed to decode StrategyDeployFundsEvent: %w", err)
 	}
-	// TODO: implement mapping logic
+
+	if err := strategy.DeployFunds(ctx, db, ev); err != nil {
+		return fmt.Errorf("failed to deploy funds: %w", err)
+	}
 	return nil
 }
 
@@ -160,7 +169,9 @@ func mapStrategyFreeFundsEvent(ctx context.Context, db *gorm.DB, event core.Even
 	if err := json.Unmarshal(event.JsonEv, &ev); err != nil {
 		return fmt.Errorf("failed to decode StrategyFreeFundsEvent: %w", err)
 	}
-	// TODO: implement mapping logic
+	if err := strategy.FreeFunds(ctx, db, ev); err != nil {
+		return fmt.Errorf("failed to free funds: %w", err)
+	}
 	return nil
 }
 

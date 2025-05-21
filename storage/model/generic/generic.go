@@ -30,6 +30,30 @@ func Load[T Identifiable](ctx context.Context, db *gorm.DB, model T) (bool, erro
 	}
 }
 
+func LoadWithPreloads[T Identifiable](
+	ctx context.Context,
+	db *gorm.DB,
+	model T,
+	preloads ...string,
+) (bool, error) {
+	q := db.WithContext(ctx).
+		Session(&gorm.Session{Logger: db.Logger.LogMode(logger.Silent)})
+	for _, field := range preloads {
+		q = q.Preload(field)
+	}
+	err := q.Where("id = ?", model.GetID()).First(model).Error
+
+	switch {
+	case errors.Is(err, gorm.ErrRecordNotFound):
+		model.Init()
+		return false, nil
+	case err != nil:
+		return false, err
+	default:
+		return true, nil
+	}
+}
+
 func Save[T any](ctx context.Context, db *gorm.DB, model T) error {
 	return db.WithContext(ctx).
 		Clauses(clause.OnConflict{

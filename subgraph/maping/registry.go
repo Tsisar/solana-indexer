@@ -20,29 +20,29 @@ var registry = map[string]EventMapper{
 	"FundManagerFreeFundsEvent":             mapFundManagerFreeFundsEvent,
 	"FundManagerHarvestAndReportEvent":      mapFundManagerHarvestAndReportEvent,
 	"FundManagerStrategyStateUpdateEvent":   mapFundManagerStrategyStateUpdateEvent,
-	"HarvestAndReportDTFEvent":              mapHarvestAndReportDTFEvent,
+	"HarvestAndReportDTFEvent":              mapHarvestAndReportDTFEvent, //Done
 	"MinDeployAmountSetEvent":               mapMinDeployAmountSetEvent,
-	"OrcaAfterSwapEvent":                    mapOrcaAfterSwapEvent,
+	"OrcaAfterSwapEvent":                    mapOrcaAfterSwapEvent, //Done
 	"OrcaInitEvent":                         mapOrcaInitEvent,
-	"SetPerformanceFeeEvent":                mapSetPerformanceFeeEvent,
-	"StrategyDeployFundsEvent":              mapStrategyDeployFundsEvent,
-	"StrategyDepositEvent":                  mapStrategyDepositEvent, //Done
-	"StrategyFreeFundsEvent":                mapStrategyFreeFundsEvent,
-	"StrategyInitEvent":                     mapStrategyInitEvent, //Done
+	"SetPerformanceFeeEvent":                mapSetPerformanceFeeEvent,   //Done
+	"StrategyDeployFundsEvent":              mapStrategyDeployFundsEvent, //Done
+	"StrategyDepositEvent":                  mapStrategyDepositEvent,     //Done
+	"StrategyFreeFundsEvent":                mapStrategyFreeFundsEvent,   //Done
+	"StrategyInitEvent":                     mapStrategyInitEvent,        //Done
 	"StrategyReallocEvent":                  mapStrategyReallocEvent,
 	"StrategyShutdownEvent":                 mapStrategyShutdownEvent,
 	"StrategyWithdrawEvent":                 mapStrategyWithdrawEvent, //Done
 	"TotalInvestedUpdatedEvent":             mapTotalInvestedUpdatedEvent,
-	"StrategyReportedEvent":                 mapStrategyReportedEvent, //Done
-	"UpdatedCurrentDebtForStrategyEvent":    mapUpdatedCurrentDebtForStrategyEvent,
-	"VaultAddStrategyEvent":                 mapVaultAddStrategyEvent, //Done
-	"VaultDepositEvent":                     mapVaultDepositEvent,     //Done
+	"StrategyReportedEvent":                 mapStrategyReportedEvent,              //Done
+	"UpdatedCurrentDebtForStrategyEvent":    mapUpdatedCurrentDebtForStrategyEvent, //Done
+	"VaultAddStrategyEvent":                 mapVaultAddStrategyEvent,              //Done
+	"VaultDepositEvent":                     mapVaultDepositEvent,                  //Done
 	"VaultEmergencyWithdrawEvent":           mapVaultEmergencyWithdrawEvent,
 	"VaultInitEvent":                        mapVaultInitEvent, //Done
 	"VaultRemoveStrategyEvent":              mapVaultRemoveStrategyEvent,
-	"VaultShutDownEvent":                    mapVaultShutDownEvent,
+	"VaultShutDownEvent":                    mapVaultShutDownEvent, //Done
 	"VaultUpdateAccountantEvent":            mapVaultUpdateAccountantEvent,
-	"VaultUpdateDepositLimitEvent":          mapVaultUpdateDepositLimitEvent,
+	"VaultUpdateDepositLimitEvent":          mapVaultUpdateDepositLimitEvent, //Done
 	"VaultUpdateDirectWithdrawEnabledEvent": mapVaultUpdateDirectWithdrawEnabledEvent,
 	"VaultUpdateMinTotalIdleEvent":          mapVaultUpdateMinTotalIdleEvent,
 	"VaultUpdateMinUserDepositEvent":        mapVaultUpdateMinUserDepositEvent,

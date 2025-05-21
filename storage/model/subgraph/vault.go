@@ -102,7 +102,13 @@ func (v *Vault) GetID() string {
 }
 
 func (v *Vault) Load(ctx context.Context, db *gorm.DB) (bool, error) {
-	return generic.Load(ctx, db, v)
+	return generic.LoadWithPreloads(ctx, db, v,
+		"Strategies",
+		"Deposits",
+		"Withdrawals",
+		"HistoricalApr",
+		"WithdrawalRequests",
+	)
 }
 
 func (v *Vault) Save(ctx context.Context, db *gorm.DB) error {

@@ -33,7 +33,7 @@ func Start(ctx context.Context, db *storage.Gorm, resume bool, done chan struct{
 	for {
 		select {
 		case <-ctx.Done():
-			log.Debugf("[parser]  context cancelled")
+			log.Debugf("[parser] context cancelled")
 			return nil
 		case sig := <-in:
 			if err := parseOneTransaction(ctx, db, true, sig); err != nil {

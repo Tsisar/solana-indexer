@@ -35,6 +35,7 @@ func mapUpdatedCurrentDebtForStrategyEvent(ctx context.Context, db *gorm.DB, eve
 	if err := json.Unmarshal(event.JsonEv, &ev); err != nil {
 		return fmt.Errorf("[maping] failed to decode UpdatedCurrentDebtForStrategyEvent: %w", err)
 	}
+
 	if err := strategy.UpdateCurrentDebt(ctx, db, ev); err != nil {
 		return fmt.Errorf("[maping] failed to update current debt: %w", err)
 	}
@@ -113,7 +114,10 @@ func mapVaultShutDownEvent(ctx context.Context, db *gorm.DB, event core.Event) e
 	if err := json.Unmarshal(event.JsonEv, &ev); err != nil {
 		return fmt.Errorf("[maping] failed to decode VaultShutDownEvent: %w", err)
 	}
-	// TODO: implement mapping logic
+
+	if err := vault.ShutDown(ctx, db, ev); err != nil {
+		return fmt.Errorf("[maping] failed to shut down vault: %w", err)
+	}
 	return nil
 }
 
@@ -133,7 +137,10 @@ func mapVaultUpdateDepositLimitEvent(ctx context.Context, db *gorm.DB, event cor
 	if err := json.Unmarshal(event.JsonEv, &ev); err != nil {
 		return fmt.Errorf("[maping] failed to decode VaultUpdateDepositLimitEvent: %w", err)
 	}
-	// TODO: implement mapping logic
+
+	if err := vault.UpdateDepositLimit(ctx, db, ev); err != nil {
+		return fmt.Errorf("[maping] failed to update deposit limit: %w", err)
+	}
 	return nil
 }
 
