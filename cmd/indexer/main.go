@@ -36,8 +36,6 @@ func main() {
 		log.Fatalf("[Main] Failed to init subgraph DB: %v", err)
 	}
 
-	aggregator.Start(appCtx, gorm.DB)
-
 	go func() {
 		if err := healthchecker.Start(appCtx, gorm); err != nil {
 			subgraph.MapError(appCtx, gorm, err)
@@ -101,7 +99,8 @@ func main() {
 			cancel()
 			goto waitAndRestart
 		case <-parseDone:
-			log.Info("[Main] Historical parsing complete, entering streaming mode")
+			log.Info("[Main] Historical parsing complete, run aggregator, entering streaming mode")
+			aggregator.Start(appCtx, gorm.DB)
 			resumeFromLastSignature = true
 		case <-ctx.Done():
 			goto waitAndRestart

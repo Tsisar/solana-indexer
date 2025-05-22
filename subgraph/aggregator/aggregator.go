@@ -14,12 +14,22 @@ import (
 func Start(ctx context.Context, db *gorm.DB) {
 	ticker := time.NewTicker(1 * time.Hour)
 
+	if err := aggregateAndSaveSharePrice(ctx, db, "hour"); err != nil {
+		log.Errorf("Aggregation error: %v", err)
+	}
+	if err := aggregateAndSaveSharePrice(ctx, db, "day"); err != nil {
+		log.Errorf("Aggregation error: %v", err)
+	}
+
 	go func() {
 		for {
 			select {
 			case <-ticker.C:
 				log.Debug("Running hourly aggregation...")
-				if err := AggregateAndSaveHourlySharePrice(ctx, db); err != nil {
+				if err := aggregateAndSaveSharePrice(ctx, db, "hour"); err != nil {
+					log.Errorf("Aggregation error: %v", err)
+				}
+				if err := aggregateAndSaveSharePrice(ctx, db, "day"); err != nil {
 					log.Errorf("Aggregation error: %v", err)
 				}
 			case <-ctx.Done():
@@ -30,7 +40,11 @@ func Start(ctx context.Context, db *gorm.DB) {
 	}()
 }
 
-func AggregateAndSaveHourlySharePrice(ctx context.Context, db *gorm.DB) error {
+func aggregateAndSaveSharePrice(ctx context.Context, db *gorm.DB, interval string) error {
+	if interval != "hour" && interval != "day" {
+		return fmt.Errorf("unsupported interval: %s", interval)
+	}
+
 	type rawRow struct {
 		VaultID    string           `gorm:"column:vault_id"`
 		Timestamp  int64            `gorm:"column:timestamp_sec"`
@@ -39,13 +53,13 @@ func AggregateAndSaveHourlySharePrice(ctx context.Context, db *gorm.DB) error {
 
 	var rows []rawRow
 
-	query := `
+	query := fmt.Sprintf(`
 		WITH aggregated AS (
 			SELECT
 				vault_id,
-				EXTRACT(EPOCH FROM date_trunc('day', to_timestamp(timestamp::numeric)))::BIGINT AS timestamp_sec,
+				EXTRACT(EPOCH FROM date_trunc('%s', to_timestamp(timestamp::numeric)))::BIGINT AS timestamp_sec,
 				LAST_VALUE(share_price) OVER (
-					PARTITION BY vault_id, date_trunc('day', to_timestamp(timestamp::numeric))
+					PARTITION BY vault_id, date_trunc('%s', to_timestamp(timestamp::numeric))
 					ORDER BY timestamp::numeric
 					ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING
 				) AS share_price
@@ -57,25 +71,26 @@ func AggregateAndSaveHourlySharePrice(ctx context.Context, db *gorm.DB) error {
 			   share_price
 		FROM aggregated
 		ORDER BY vault_id, timestamp_sec;
-	`
+	`, interval, interval)
 
 	if err := db.Raw(query).Scan(&rows).Error; err != nil {
-		return fmt.Errorf("daily aggregation query failed: %w", err)
+		return fmt.Errorf("%s aggregation query failed: %w", interval, err)
 	}
 
 	for _, r := range rows {
 		timestamp := *types.NewBigIntFromInt64(r.Timestamp)
 		timestampStr := fmt.Sprintf("%d", r.Timestamp)
-		id := utils.GenerateId(r.VaultID, timestampStr)
+		id := utils.GenerateId(r.VaultID, timestampStr, interval)
 
 		stat := subgraph.TokenStats{
 			ID:         id,
 			VaultID:    r.VaultID,
 			Timestamp:  timestamp,
 			SharePrice: r.SharePrice,
+			Interval:   interval,
 		}
 		if err := stat.Save(ctx, db); err != nil {
-			return fmt.Errorf("failed to save token stats: %w", err)
+			return fmt.Errorf("failed to save %s token stats: %w", interval, err)
 		}
 	}
 
