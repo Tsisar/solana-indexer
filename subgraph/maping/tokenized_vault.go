@@ -7,6 +7,7 @@ import (
 	"github.com/Tsisar/extended-log-go/log"
 	"github.com/Tsisar/solana-indexer/storage/model/core"
 	"github.com/Tsisar/solana-indexer/subgraph/events"
+	"github.com/Tsisar/solana-indexer/subgraph/library/shareToken"
 	"github.com/Tsisar/solana-indexer/subgraph/library/strategy"
 	"github.com/Tsisar/solana-indexer/subgraph/library/vault"
 	"gorm.io/gorm"
@@ -277,6 +278,61 @@ func mapWithdrawalRequestedEvent(ctx context.Context, db *gorm.DB, event core.Ev
 	}
 	if err := vault.WithdrawalRequested(ctx, db, ev); err != nil {
 		return fmt.Errorf("[maping] failed to process withdrawal request: %w", err)
+	}
+	return nil
+}
+
+func mapMintToInstruction(ctx context.Context, db *gorm.DB, event core.Event) error {
+	log.Infof("[maping] MintToInstruction: %s", event.TransactionSignature)
+	var ev events.MintToInstruction
+	if err := json.Unmarshal(event.JsonEv, &ev); err != nil {
+		return fmt.Errorf("[maping] failed to decode MintToInstruction: %w", err)
+	}
+	transaction := events.NewTransaction(event)
+
+	if err := shareToken.Mint(ctx, db, ev, transaction); err != nil {
+		return fmt.Errorf("[maping] failed to mint: %w", err)
+	}
+	return nil
+}
+
+func mapBurnInstruction(ctx context.Context, db *gorm.DB, event core.Event) error {
+	log.Infof("[maping] BurnInstruction: %s", event.TransactionSignature)
+	var ev events.BurnInstruction
+	if err := json.Unmarshal(event.JsonEv, &ev); err != nil {
+		return fmt.Errorf("[maping] failed to decode BurnInstruction: %w", err)
+	}
+	transaction := events.NewTransaction(event)
+
+	if err := shareToken.Burn(ctx, db, ev, transaction); err != nil {
+		return fmt.Errorf("[maping] failed to burn: %w", err)
+	}
+	return nil
+}
+
+func mapTransferInstruction(ctx context.Context, db *gorm.DB, event core.Event) error {
+	log.Infof("[maping] TransferInstruction: %s", event.TransactionSignature)
+	var ev events.TransferInstruction
+	if err := json.Unmarshal(event.JsonEv, &ev); err != nil {
+		return fmt.Errorf("[maping] failed to decode TransferInstruction: %w", err)
+	}
+	transaction := events.NewTransaction(event)
+
+	if err := shareToken.Transfer(ctx, db, ev, transaction); err != nil {
+		return fmt.Errorf("[maping] failed to transfer: %w", err)
+	}
+	return nil
+}
+
+func mapInitializeAccount3Instruction(ctx context.Context, db *gorm.DB, event core.Event) error {
+	log.Infof("[maping] InitializeAccountInstruction: %s", event.TransactionSignature)
+	var ev events.InitializeAccountInstruction
+	if err := json.Unmarshal(event.JsonEv, &ev); err != nil {
+		return fmt.Errorf("[maping] failed to decode InitializeAccountInstruction: %w", err)
+	}
+
+	if err := shareToken.InitializeAccount(ctx, db, ev); err != nil {
+		return fmt.Errorf("[maping] failed to initialize account: %w", err)
 	}
 	return nil
 }

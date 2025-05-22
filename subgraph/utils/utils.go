@@ -73,3 +73,12 @@ func Val[T any](v *T) T {
 	var zero T
 	return zero
 }
+
+func Contains(slice []string, value string) bool {
+	for _, item := range slice {
+		if item == value {
+			return true
+		}
+	}
+	return false
+}

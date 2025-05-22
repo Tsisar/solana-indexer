@@ -44,5 +44,9 @@ Signature: %s
 	if err := updateMeta(ctx, db, event); err != nil {
 		return fmt.Errorf("failed to update meta: %w", err)
 	}
+
+	if err := mapEvents(ctx, db, event); err != nil {
+		return fmt.Errorf("failed to map events: %w", err)
+	}
 	return nil
 }

@@ -13,6 +13,7 @@ type config struct {
 	RPCEndpoint             string
 	RPCWSEndpoint           string
 	Programs                []string
+	Tokens                  []string
 	Postgres                postgres
 	Metrics                 metrics
 }
@@ -50,6 +51,7 @@ func loadConfig() (*config, error) {
 		RPCEndpoint:             getString("RPC_ENDPOINT", "https://api.mainnet-beta.solana.com"),
 		RPCWSEndpoint:           getString("RPC_WS_ENDPOINT", "wss://api.mainnet-beta.solana.com"),
 		Programs:                getStringSlice("PROGRAMS", []string{}),
+		Tokens:                  getStringSlice("TOKENS", []string{}),
 		Postgres: postgres{
 			User:     getString("POSTGRES_USER", "postgres"),
 			Password: getString("POSTGRES_PASSWORD", "postgres"),

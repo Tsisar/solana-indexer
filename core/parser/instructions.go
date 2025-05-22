@@ -159,13 +159,11 @@ func mapTokenInstruction(inst interface{}) (string, any) {
 			Amount:    i.Amount,
 		}
 	case *token.TransferChecked:
-		return "TransferCheckedInstruction", events.TransferCheckedInstruction{
+		return "TransferInstruction", events.TransferInstruction{
 			From:      &i.GetSourceAccount().PublicKey,
 			To:        &i.GetDestinationAccount().PublicKey,
 			Authority: &i.GetOwnerAccount().PublicKey,
-			Mint:      &i.GetMintAccount().PublicKey,
 			Amount:    i.Amount,
-			Decimals:  i.Decimals,
 		}
 	case *token.MintTo:
 		return "MintToInstruction", events.MintToInstruction{
@@ -174,36 +172,54 @@ func mapTokenInstruction(inst interface{}) (string, any) {
 			Amount: i.Amount,
 		}
 	case *token.MintToChecked:
-		return "MintToCheckedInstruction", events.MintToCheckedInstruction{
-			To:       &i.GetDestinationAccount().PublicKey,
-			Mint:     &i.GetMintAccount().PublicKey,
-			Amount:   i.Amount,
-			Decimals: i.Decimals,
+		return "MintToInstruction", events.MintToInstruction{
+			To:     &i.GetDestinationAccount().PublicKey,
+			Mint:   &i.GetMintAccount().PublicKey,
+			Amount: i.Amount,
 		}
 	case *token.Burn:
+		log.Debugf("[parser] Burn instruction: %v", i)
 		return "BurnInstruction", events.BurnInstruction{
 			From:   &i.GetSourceAccount().PublicKey,
 			Mint:   &i.GetMintAccount().PublicKey,
 			Amount: i.Amount,
 		}
 	case *token.BurnChecked:
-		return "BurnCheckedInstruction", events.BurnCheckedInstruction{
-			From:     &i.GetSourceAccount().PublicKey,
-			Mint:     &i.GetMintAccount().PublicKey,
-			Amount:   i.Amount,
-			Decimals: i.Decimals,
+		return "BurnCheckedInstruction", events.BurnInstruction{
+			From:   &i.GetSourceAccount().PublicKey,
+			Mint:   &i.GetMintAccount().PublicKey,
+			Amount: i.Amount,
 		}
-	case *token.InitializeMint2:
-		return "InitializeMint2Instruction", events.InitializeMint2Instruction{
+	case *token.InitializeMint:
+		return "InitializeMintInstruction", events.InitializeMintInstruction{
 			Mint:            &i.GetMintAccount().PublicKey,
 			MintAuthority:   i.MintAuthority,
 			FreezeAuthority: i.FreezeAuthority,
 			Decimals:        i.Decimals,
 		}
+	case *token.InitializeMint2:
+		return "InitializeMintInstruction", events.InitializeMintInstruction{
+			Mint:            &i.GetMintAccount().PublicKey,
+			MintAuthority:   i.MintAuthority,
+			FreezeAuthority: i.FreezeAuthority,
+			Decimals:        i.Decimals,
+		}
+	case *token.InitializeAccount:
+		return "InitializeAccountInstruction", events.InitializeAccountInstruction{
+			Account: &i.GetAccount().PublicKey,
+			Mint:    &i.GetMintAccount().PublicKey,
+		}
+	case *token.InitializeAccount2:
+		return "InitializeAccountInstruction", events.InitializeAccountInstruction{
+			Account: &i.GetAccount().PublicKey,
+			Mint:    &i.GetMintAccount().PublicKey,
+			Owner:   i.Owner,
+		}
 	case *token.InitializeAccount3:
-		return "InitializeAccount3Instruction", events.InitializeAccount3Instruction{
-			Mint:  &i.GetMintAccount().PublicKey,
-			Owner: i.Owner,
+		return "InitializeAccountInstruction", events.InitializeAccountInstruction{
+			Account: &i.GetAccount().PublicKey,
+			Mint:    &i.GetMintAccount().PublicKey,
+			Owner:   i.Owner,
 		}
 	default:
 		return "", nil

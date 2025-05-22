@@ -54,6 +54,10 @@ var registry = map[string]EventMapper{
 	"WithdrawalRequestCanceledEvent":        mapWithdrawalRequestCanceledEvent,  //Done
 	"WithdrawalRequestFulfilledEvent":       mapWithdrawalRequestFulfilledEvent, //Done
 	"WithdrawalRequestedEvent":              mapWithdrawalRequestedEvent,        //Done
+	"MintToInstruction":                     mapMintToInstruction,               //Done
+	"BurnInstruction":                       mapBurnInstruction,                 //Done
+	"TransferInstruction":                   mapTransferInstruction,             //Done
+	"InitializeAccountInstruction":          mapInitializeAccount3Instruction,   //Done
 }
 
 func mapEvents(ctx context.Context, db *gorm.DB, event core.Event) error {

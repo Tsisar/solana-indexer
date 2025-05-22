@@ -13,20 +13,20 @@ import (
 )
 
 func CreateReport(ctx context.Context, db *gorm.DB, ev events.StrategyReportedEvent, transaction events.Transaction) error {
-	log.Infof("[createReport] Creating report...")
+	log.Infof("[report] Creating report...")
 	strategy := subgraph.Strategy{ID: ev.StrategyKey.String()}
 	ok, err := strategy.Load(ctx, db)
 	if err != nil || !ok {
-		return fmt.Errorf("[createReport] failed to load strategy: %w", err)
+		return fmt.Errorf("[report] failed to load strategy: %w", err)
 	}
 
 	if ev.Gain.Sign() > 0 || ev.Loss.Sign() > 0 {
-		log.Debugf("[createReport] Generating new report ID for strategy %s.", strategy.ID)
+		log.Debugf("[report] Generating new report ID for strategy %s.", strategy.ID)
 
 		id := utils.GenerateId(transaction.Signature, ev.StrategyKey.String())
 		currentReport := subgraph.StrategyReport{ID: id}
 		if _, err := currentReport.Load(ctx, db); err != nil {
-			return fmt.Errorf("[createReport] failed to load strategy report: %w", err)
+			return fmt.Errorf("[report] failed to load strategy report: %w", err)
 		}
 
 		currentReport.StrategyID = ev.StrategyKey.String()
@@ -42,50 +42,50 @@ func CreateReport(ctx context.Context, db *gorm.DB, ev events.StrategyReportedEv
 		currentReport.VaultKey = ev.VaultKey.String()
 
 		if err := currentReport.Save(ctx, db); err != nil {
-			return fmt.Errorf("[createReport] failed to save strategy report: %w", err)
+			return fmt.Errorf("[report] failed to save strategy report: %w", err)
 		}
 
 		previousReportId := strategy.LatestReportID
 
-		log.Debugf("[createReport] Getting previous report ID for strategy %s: %s.", strategy.ID, previousReportId)
+		log.Debugf("[report] Getting previous report ID for strategy %s: %s.", strategy.ID, previousReportId)
 
 		strategy.LatestReportID = &currentReport.ID
 		if err := strategy.Save(ctx, db); err != nil {
-			return fmt.Errorf("[createReport] failed to save strategy: %w", err)
+			return fmt.Errorf("[report] failed to save strategy: %w", err)
 		}
 
 		if previousReportId != nil && *previousReportId != "" {
 			previousReport := subgraph.StrategyReport{ID: *previousReportId}
 			ok, err = previousReport.Load(ctx, db)
 			if err != nil {
-				return fmt.Errorf("[createReport] failed to load current report: %w", err)
+				return fmt.Errorf("[report] failed to load current report: %w", err)
 			}
 			if !ok {
-				log.Warnf("[createReport] Report result NOT created. Current report not found: %s", previousReportId)
+				log.Warnf("[report] Report result NOT created. Current report not found: %s", previousReportId)
 				return nil
 			}
-			log.Debugf("[createReport] Creating report result for strategy %s: %s vs %s.", strategy.ID, previousReportId, currentReport.ID)
+			log.Debugf("[report] Creating report result for strategy %s: %s vs %s.", strategy.ID, previousReportId, currentReport.ID)
 			if err := createReportResult(ctx, db, previousReport, currentReport, transaction); err != nil {
-				return fmt.Errorf("[createReport] failed to create report result: %w", err)
+				return fmt.Errorf("[report] failed to create report result: %w", err)
 			}
 		} else {
-			log.Warnf("[createReport] Report result NOT created. Previous report not found: %s", previousReportId)
+			log.Warnf("[report] Report result NOT created. Previous report not found: %s", previousReportId)
 		}
 	}
 	return nil
 }
 
 func createReportResult(ctx context.Context, db *gorm.DB, previousReport subgraph.StrategyReport, currentReport subgraph.StrategyReport, transaction events.Transaction) error {
-	log.Infof("[createReportResult] Creating report result (latest vs current report)...")
+	log.Infof("[report] Creating report result (latest vs current report)...")
 	if currentReport.ID == previousReport.ID {
-		log.Warnf("[createReportResult] Report result NOT created. Current report is the same as latest report")
+		log.Warnf("[report] Report result NOT created. Current report is the same as latest report")
 		return nil
 	}
 
 	id := utils.GenerateId(transaction.Signature, previousReport.ID, currentReport.ID)
 	strategyReportResult := subgraph.StrategyReportResult{ID: id}
 	if _, err := strategyReportResult.Load(ctx, db); err != nil {
-		return fmt.Errorf("[createReportResult] failed to load strategy report result: %w", err)
+		return fmt.Errorf("[report] failed to load strategy report result: %w", err)
 	}
 
 	strategyReportResult.TransactionHash = transaction.Signature
@@ -105,7 +105,7 @@ func createReportResult(ctx context.Context, db *gorm.DB, previousReport subgrap
 	profit := currentReport.Gain.Plus(&currentReport.Loss)
 
 	log.Infof(
-		"[createReportResult] Report Result - Start / End: %d / %d - Duration: %s (ms) - Profit: %s",
+		"[report] Report Result - Start / End: %d / %d - Duration: %s (ms) - Profit: %s",
 		strategyReportResult.StartTimestamp,
 		strategyReportResult.EndTimestamp,
 		utils.FormatBigDecimal(&strategyReportResult.Duration, 6),
@@ -123,7 +123,7 @@ func createReportResult(ctx context.Context, db *gorm.DB, previousReport subgrap
 		strategyReportResult.Apr = *apr
 
 		log.Infof(
-			"[createReportResult] Report Result - Duration: %s ms / %s days - Duration (Year): %s - Profit / Total Debt: %s / APR: %s - TxHash: %s",
+			"[report] Report Result - Duration: %s ms / %s days - Duration (Year): %s - Profit / Total Debt: %s / APR: %s - TxHash: %s",
 			utils.FormatBigInt(duration),                   // milliseconds
 			utils.FormatBigDecimal(msInDays, 6),            // days
 			utils.FormatBigDecimal(yearOverDuration, 6),    // year factor
@@ -136,13 +136,13 @@ func createReportResult(ctx context.Context, db *gorm.DB, previousReport subgrap
 	strategy := subgraph.Strategy{ID: previousReport.StrategyID}
 	ok, err := strategy.Load(ctx, db)
 	if err != nil || !ok {
-		return fmt.Errorf("[createReportResult] failed to load strategy: %w", err)
+		return fmt.Errorf("[report] failed to load strategy: %w", err)
 	}
 
 	vault := subgraph.Vault{ID: strategy.VaultID}
 	ok, err = vault.Load(ctx, db)
 	if err != nil || !ok {
-		return fmt.Errorf("[createReportResult] failed to load vault: %w", err)
+		return fmt.Errorf("[report] failed to load vault: %w", err)
 	}
 
 	reportCount := strategy.ReportsCount
@@ -165,47 +165,47 @@ func createReportResult(ctx context.Context, db *gorm.DB, previousReport subgrap
 
 	newVaultHistoricalApr := subgraph.VaultHistoricalApr{ID: id}
 	if _, err := newVaultHistoricalApr.Load(ctx, db); err != nil {
-		return fmt.Errorf("[createReportResult] failed to load vault historical APR: %w", err)
+		return fmt.Errorf("[report] failed to load vault historical APR: %w", err)
 	}
 	newVaultHistoricalApr.Timestamp = transaction.Timestamp
 	newVaultHistoricalApr.Apr = *vaultApr
 	newVaultHistoricalApr.VaultID = vault.ID
 	if err := newVaultHistoricalApr.Save(ctx, db); err != nil {
-		return fmt.Errorf("[createReportResult] failed to save vault historical APR: %w", err)
+		return fmt.Errorf("[report] failed to save vault historical APR: %w", err)
 	}
 
 	newStrategyHistoricalApr := subgraph.StrategyHistoricalApr{ID: id}
 	if _, err := newStrategyHistoricalApr.Load(ctx, db); err != nil {
-		return fmt.Errorf("[createReportResult] failed to load strategy historical APR: %w", err)
+		return fmt.Errorf("[report] failed to load strategy historical APR: %w", err)
 	}
 	newStrategyHistoricalApr.Timestamp = transaction.Timestamp
 	newStrategyHistoricalApr.Apr = *strategyApr
 	newStrategyHistoricalApr.StrategyID = strategy.ID
 	if err := newStrategyHistoricalApr.Save(ctx, db); err != nil {
-		return fmt.Errorf("[createReportResult] failed to save strategy historical APR: %w", err)
+		return fmt.Errorf("[report] failed to save strategy historical APR: %w", err)
 	}
 
 	strategy.ReportsCount = *reportCount.Plus(&types.BigInt{Int: big.NewInt(1)})
 	if err := strategy.Save(ctx, db); err != nil {
-		return fmt.Errorf("[createReportResult] failed to save strategy: %w", err)
+		return fmt.Errorf("[report] failed to save strategy: %w", err)
 	}
 	if err := vault.Save(ctx, db); err != nil {
-		return fmt.Errorf("[createReportResult] failed to save vault: %w", err)
+		return fmt.Errorf("[report] failed to save vault: %w", err)
 	}
 	if err := strategyReportResult.Save(ctx, db); err != nil {
-		return fmt.Errorf("[createReportResult] failed to save strategy report result: %w", err)
+		return fmt.Errorf("[report] failed to save strategy report result: %w", err)
 	}
 
 	return nil
 }
 
 func CreateReportEvent(ctx context.Context, db *gorm.DB, ev events.StrategyReportedEvent, transaction events.Transaction) error {
-	log.Infof("[createReportEvent] Creating report event...")
+	log.Infof("[report] Creating report event...")
 
 	id := utils.GenerateId(transaction.Signature, ev.StrategyKey.String())
 	strategyReportEvent := subgraph.StrategyReportEvent{ID: id}
 	if _, err := strategyReportEvent.Load(ctx, db); err != nil {
-		return fmt.Errorf("[createReportEvent] failed to load strategy report event: %w", err)
+		return fmt.Errorf("[report] failed to load strategy report event: %w", err)
 	}
 
 	strategyReportEvent.TransactionHash = transaction.Signature
@@ -215,27 +215,33 @@ func CreateReportEvent(ctx context.Context, db *gorm.DB, ev events.StrategyRepor
 	strategyReportEvent.SharePrice = ev.SharePrice
 
 	if err := strategyReportEvent.Save(ctx, db); err != nil {
-		return fmt.Errorf("[createReportEvent] failed to save strategy report event: %w", err)
+		return fmt.Errorf("[report] failed to save strategy report event: %w", err)
 	}
 	return nil
 }
 
 func CreateShareTokenData(ctx context.Context, db *gorm.DB, ev events.StrategyReportedEvent, transaction events.Transaction) error {
-	log.Infof("[createShareTokenData] Creating share token data...")
+	log.Infof("[report] Creating share token data...")
 	strategy := subgraph.Strategy{ID: ev.StrategyKey.String()}
 	ok, err := strategy.Load(ctx, db)
 	if err != nil || !ok {
-		return fmt.Errorf("[createShareTokenData] failed to load strategy: %w", err)
+		return fmt.Errorf("[report] failed to load strategy: %w", err)
+	}
+
+	vault := subgraph.Vault{ID: strategy.VaultID}
+	ok, err = vault.Load(ctx, db)
+	if err != nil || !ok {
+		return fmt.Errorf("[report] failed to load vault: %w", err)
 	}
 
 	shareTokenData := subgraph.ShareTokenData{
-		ID:         "0",
+		ID:         vault.ShareTokenID,
 		VaultID:    strategy.VaultID,
 		Timestamp:  transaction.Timestamp,
 		SharePrice: ev.SharePrice,
 	}
 	if err := shareTokenData.Save(ctx, db); err != nil {
-		return fmt.Errorf("[createShareTokenData] failed to save share token data: %w", err)
+		return fmt.Errorf("[report] failed to save share token data: %w", err)
 	}
 
 	return nil

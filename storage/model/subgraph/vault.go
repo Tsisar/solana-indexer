@@ -2,6 +2,7 @@ package subgraph
 
 import (
 	"context"
+	"fmt"
 	"github.com/Tsisar/solana-indexer/storage/model/generic"
 	"github.com/Tsisar/solana-indexer/subgraph/types"
 	"gorm.io/gorm"
@@ -113,4 +114,20 @@ func (v *Vault) Load(ctx context.Context, db *gorm.DB) (bool, error) {
 
 func (v *Vault) Save(ctx context.Context, db *gorm.DB) error {
 	return generic.Save(ctx, db, v)
+}
+
+// GetShareTokenMints returns a list of share token mints from the database.
+func GetShareTokenMints(ctx context.Context, db *gorm.DB) ([]string, error) {
+	var vaults []Vault
+
+	if err := db.WithContext(ctx).Select("share_token_id").Find(&vaults).Error; err != nil {
+		return nil, fmt.Errorf("failed to fetch share token mints: %w", err)
+	}
+
+	var mints []string
+	for _, vault := range vaults {
+		mints = append(mints, vault.ShareTokenID)
+	}
+
+	return mints, nil
 }
