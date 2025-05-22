@@ -9,12 +9,13 @@ import (
 var App *config
 
 type config struct {
-	EnableSignatureResume bool
-	RPCEndpoint           string
-	RPCWSEndpoint         string
-	Programs              []string
-	Postgres              postgres
-	Metrics               metrics
+	ResumeFromLastSignature bool
+	RPCEndpoint             string
+	RPCWSEndpoint           string
+	Programs                []string
+	Tokens                  []string
+	Postgres                postgres
+	Metrics                 metrics
 }
 
 type postgres struct {
@@ -46,10 +47,11 @@ func init() {
 
 func loadConfig() (*config, error) {
 	return &config{
-		EnableSignatureResume: getBool("ENABLE_SIGNATURE_RESUME", true),
-		RPCEndpoint:           getString("RPC_ENDPOINT", "https://api.mainnet-beta.solana.com"),
-		RPCWSEndpoint:         getString("RPC_WS_ENDPOINT", "wss://api.mainnet-beta.solana.com"),
-		Programs:              getStringSlice("PROGRAMS", []string{}),
+		ResumeFromLastSignature: getBool("RESUME_FROM_LAST_SIGNATURE", false),
+		RPCEndpoint:             getString("RPC_ENDPOINT", "https://api.mainnet-beta.solana.com"),
+		RPCWSEndpoint:           getString("RPC_WS_ENDPOINT", "wss://api.mainnet-beta.solana.com"),
+		Programs:                getStringSlice("PROGRAMS", []string{}),
+		Tokens:                  getStringSlice("TOKENS", []string{}),
 		Postgres: postgres{
 			User:     getString("POSTGRES_USER", "postgres"),
 			Password: getString("POSTGRES_PASSWORD", "postgres"),

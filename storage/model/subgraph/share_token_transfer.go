@@ -8,12 +8,15 @@ import (
 )
 
 type ShareTokenTransfer struct {
-	ID     string           `gorm:"primaryKey;column:id"` // ID
-	To     *Token           `gorm:"foreignKey:ToID"`      // Transfer to account (ShareToken)
-	ToID   string           `gorm:"column:to_id"`         // ShareToken ID (recipient)
-	From   *Token           `gorm:"foreignKey:FromID"`    // Transfer from account (ShareToken)
-	FromID string           `gorm:"column:from_id"`       // ShareToken ID (sender)
-	Amount types.BigDecimal `gorm:"column:amount"`        // Number of Tokens transferred (BigDecimal)
+	ID          string           `gorm:"primaryKey;column:id"` // ID
+	Mint        *Token           `gorm:"foreignKey:MintID"`    // Mint account (Token)
+	MintID      string           `gorm:"column:mint_id"`       // Token mint address
+	AuthorityID string           `gorm:"column:authority_id"`  // Authority ID (Int8)
+	To          *ShareToken      `gorm:"foreignKey:ToID"`      // Transfer to account (ShareToken)
+	ToID        string           `gorm:"column:to_id"`         // ShareToken ID (recipient)
+	From        *ShareToken      `gorm:"foreignKey:FromID"`    // Transfer from account (ShareToken)
+	FromID      string           `gorm:"column:from_id"`       // ShareToken ID (sender)
+	Amount      types.BigDecimal `gorm:"column:amount"`        // Number of Tokens transferred (BigDecimal)
 }
 
 func (ShareTokenTransfer) TableName() string {
@@ -21,6 +24,7 @@ func (ShareTokenTransfer) TableName() string {
 }
 
 func (s *ShareTokenTransfer) Init() {
+	s.AuthorityID = ""
 	s.To = nil
 	s.ToID = ""
 	s.From = nil

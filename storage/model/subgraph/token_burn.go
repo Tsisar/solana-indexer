@@ -9,7 +9,9 @@ import (
 
 type TokenBurn struct {
 	ID     string           `gorm:"primaryKey;column:id"` // Burn ID
-	From   *Token           `gorm:"foreignKey:FromID"`    // Burn account (ShareToken)
+	Mint   *Token           `gorm:"foreignKey:MintID"`    // Mint account (Token)
+	MintID string           `gorm:"column:mint_id"`       // Token mint address
+	From   *ShareToken      `gorm:"foreignKey:FromID"`    // Burn account (ShareToken)
 	FromID string           `gorm:"column:from_id"`       // ShareToken ID
 	Amount types.BigDecimal `gorm:"column:amount"`        // Number of Tokens burnt (BigDecimal)
 }
@@ -19,6 +21,7 @@ func (TokenBurn) TableName() string {
 }
 
 func (t *TokenBurn) Init() {
+	t.MintID = ""
 	t.From = nil
 	t.FromID = ""
 	t.Amount.Zero()

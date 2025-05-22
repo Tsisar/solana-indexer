@@ -41,6 +41,9 @@ type Strategy struct {
 	AssetID                 *string                  `gorm:"column:asset_id"`                    // Asset ID (optional)
 	Removed                 bool                     `gorm:"column:removed"`                     // Removed from vault
 	RemovedTimestamp        types.BigInt             `gorm:"column:removed_timestamp"`           // Removed timestamp (BigInt)
+	UnderlyingMint          string                   `gorm:"column:underlying_mint"`             // Underlying token mint address
+	UnderlyingTokenAcc      string                   `gorm:"column:underlying_token_acc"`        // Underlying token account address
+	UnderlyingDecimals      types.BigInt             `gorm:"column:underlying_decimals"`         // Underlying token decimals
 }
 
 func (Strategy) TableName() string {
@@ -69,6 +72,7 @@ func (s *Strategy) Init() {
 	s.ProfitOrLossPercent.Zero()
 	s.Removed = false
 	s.RemovedTimestamp.Zero()
+	s.LatestReportID = nil
 }
 
 func (s *Strategy) GetID() string {

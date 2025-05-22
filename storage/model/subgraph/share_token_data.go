@@ -8,11 +8,11 @@ import (
 )
 
 type ShareTokenData struct {
-	ID         string       `gorm:"primaryKey;column:id"` // ID (Int8)
-	Vault      *Vault       `gorm:"foreignKey:VaultID"`   // Reference to Vault
-	VaultID    string       `gorm:"column:vault_id"`      // Vault ID
-	Timestamp  types.BigInt `gorm:"column:timestamp"`     // Timestamp of the record
-	SharePrice types.BigInt `gorm:"column:share_price"`   // Share price (BigInt)
+	ID         string       `gorm:"primaryKey;column:id"`                           // ID
+	VaultID    string       `gorm:"column:vault_id;index:idx_vault_ts,priority:1"`  // Reference to Vault
+	Vault      *Vault       `gorm:"foreignKey:VaultID"`                             // Vault ID
+	Timestamp  types.BigInt `gorm:"column:timestamp;index:idx_vault_ts,priority:2"` // Timestamp of the record
+	SharePrice types.BigInt `gorm:"column:share_price"`                             // Share price (BigInt)
 }
 
 func (ShareTokenData) TableName() string {

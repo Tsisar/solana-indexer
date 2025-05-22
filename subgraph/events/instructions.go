@@ -1,57 +1,37 @@
 package events
 
-import "github.com/gagliardetto/solana-go"
+import (
+	"github.com/Tsisar/solana-indexer/subgraph/types"
+)
 
 type TransferInstruction struct {
-	From      *solana.PublicKey `json:"from"`
-	To        *solana.PublicKey `json:"to"`
-	Authority *solana.PublicKey `json:"authority"`
-	Amount    *uint64           `json:"amount"`
-}
-
-type TransferCheckedInstruction struct {
-	From      *solana.PublicKey `json:"from"`
-	To        *solana.PublicKey `json:"to"`
-	Authority *solana.PublicKey `json:"authority"`
-	Mint      *solana.PublicKey `json:"mint"`
-	Amount    *uint64           `json:"amount"`
-	Decimals  *uint8            `json:"decimals"`
+	From      string           `json:"from"`
+	To        string           `json:"to"`
+	Authority string           `json:"authority"`
+	Amount    types.BigDecimal `json:"amount"`
 }
 
 type MintToInstruction struct {
-	To     *solana.PublicKey `json:"to"`
-	Mint   *solana.PublicKey `json:"mint"`
-	Amount *uint64           `json:"amount"`
-}
-
-type MintToCheckedInstruction struct {
-	To       *solana.PublicKey `json:"to"`
-	Mint     *solana.PublicKey `json:"mint"`
-	Amount   *uint64           `json:"amount"`
-	Decimals *uint8            `json:"decimals"`
+	To     string           `json:"to"`
+	Mint   string           `json:"mint"`
+	Amount types.BigDecimal `json:"amount"`
 }
 
 type BurnInstruction struct {
-	From   *solana.PublicKey `json:"from"`
-	Mint   *solana.PublicKey `json:"mint"`
-	Amount *uint64           `json:"amount"`
+	From   string           `json:"from"`
+	Mint   string           `json:"mint"`
+	Amount types.BigDecimal `json:"amount"`
 }
 
-type BurnCheckedInstruction struct {
-	From     *solana.PublicKey `json:"from"`
-	Mint     *solana.PublicKey `json:"mint"`
-	Amount   *uint64           `json:"amount"`
-	Decimals *uint8            `json:"decimals"`
+type InitializeMintInstruction struct {
+	Mint            string       `json:"mint"`
+	MintAuthority   string       `json:"mint_authority"`
+	FreezeAuthority string       `json:"freeze_authority"`
+	Decimals        types.BigInt `json:"decimals"`
 }
 
-type InitializeMint2Instruction struct {
-	Mint            *solana.PublicKey `json:"mint"`
-	MintAuthority   *solana.PublicKey `json:"mint_authority"`
-	FreezeAuthority *solana.PublicKey `json:"freeze_authority"`
-	Decimals        *uint8            `json:"decimals"`
-}
-
-type InitializeAccount3Instruction struct {
-	Mint  *solana.PublicKey `json:"mint"`
-	Owner *solana.PublicKey `json:"owner"`
+type InitializeAccountInstruction struct {
+	Account string `json:"account"`
+	Mint    string `json:"mint"`
+	Owner   string `json:"owner"`
 }

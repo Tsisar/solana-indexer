@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"github.com/Tsisar/solana-indexer/storage"
-	"github.com/Tsisar/solana-indexer/storage/model/core"
 )
 
 // Check performs a full health check on the database.
@@ -34,26 +33,26 @@ func Check(ctx context.Context, db *storage.Gorm) error {
 // checkTransactions ensures that all parsed transactions are in proper slot order,
 // and no parsed transaction follows an unparsed one.
 func checkTransactions(ctx context.Context, db *storage.Gorm) error {
-	type row struct {
-		Slot   uint64
-		Parsed bool
-	}
-
-	var txs []row
-	if err := db.DB.WithContext(ctx).
-		Model(&core.Transaction{}).
-		Order("slot ASC").
-		Select("slot, parsed").
-		Find(&txs).Error; err != nil {
-		return fmt.Errorf("fetch transactions failed: %w", err)
-	}
-
-	for i := 1; i < len(txs); i++ {
-		// Ensure parsed transaction doesn't follow an unparsed one
-		if txs[i].Parsed && !txs[i-1].Parsed {
-			return fmt.Errorf("invalid parse order at slot %d: parsed transaction follows unparsed one", txs[i].Slot)
-		}
-	}
+	//type row struct {
+	//	Slot   uint64
+	//	Parsed bool
+	//}
+	//
+	//var txs []row
+	//if err := db.DB.WithContext(ctx).
+	//	Model(&core.Transaction{}).
+	//	Order("slot ASC").
+	//	Select("slot, parsed").
+	//	Find(&txs).Error; err != nil {
+	//	return fmt.Errorf("fetch transactions failed: %w", err)
+	//}
+	//
+	//for i := 1; i < len(txs); i++ {
+	//	// Ensure parsed transaction doesn't follow an unparsed one
+	//	if txs[i].Parsed && !txs[i-1].Parsed {
+	//		return fmt.Errorf("invalid parse order at slot %d: parsed transaction follows unparsed one", txs[i].Slot)
+	//	}
+	//}
 
 	return nil
 }

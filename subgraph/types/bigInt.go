@@ -111,6 +111,13 @@ func (b *BigInt) Mul(other *BigInt) *BigInt {
 	return &BigInt{Int: new(big.Int).Mul(b.Int, other.Int)}
 }
 
+func (b *BigInt) Div(other *BigInt) *BigInt {
+	if b == nil || b.Int == nil || other == nil || other.Int == nil || other.Int.Sign() == 0 {
+		return &BigInt{Int: nil}
+	}
+	return &BigInt{Int: new(big.Int).Div(b.Int, other.Int)}
+}
+
 // Conversion
 
 func (b *BigInt) ToBigDecimal() *BigDecimal {
@@ -135,7 +142,7 @@ func ZeroBigInt() BigInt {
 	return BigInt{Int: big.NewInt(0)}
 }
 
-func BigIntFromString(s string) (*BigInt, error) {
+func NewBigIntFromString(s string) (*BigInt, error) {
 	i, ok := new(big.Int).SetString(s, 10)
 	if !ok {
 		return nil, fmt.Errorf("invalid BigInt string: %s", s)
@@ -144,17 +151,17 @@ func BigIntFromString(s string) (*BigInt, error) {
 }
 
 func MustBigIntFromString(s string) BigInt {
-	b, err := BigIntFromString(s)
+	b, err := NewBigIntFromString(s)
 	if err != nil {
 		panic(err)
 	}
 	return *b
 }
 
-func BigIntFromUint64(v uint64) *BigInt {
+func NewBigIntFromUint64(v uint64) *BigInt {
 	return &BigInt{Int: new(big.Int).SetUint64(v)}
 }
 
-func BigIntFromInt64(v int64) *BigInt {
+func NewBigIntFromInt64(v int64) *BigInt {
 	return &BigInt{Int: big.NewInt(v)}
 }

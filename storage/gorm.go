@@ -51,7 +51,7 @@ func InitGorm() (*Gorm, error) {
 
 // InitCoreModels runs migrations for the core models used in the indexer,
 // sets initial health status, and stores configured program addresses in the database.
-func InitCoreModels(ctx context.Context, db *Gorm) error {
+func InitCoreModels(ctx context.Context, db *Gorm, resume bool) error {
 	if err := db.DB.AutoMigrate(
 		&core.Transaction{},
 		&core.Program{},
@@ -59,6 +59,12 @@ func InitCoreModels(ctx context.Context, db *Gorm) error {
 		&core.IndexerHealth{},
 	); err != nil {
 		return fmt.Errorf("migration failed: %w", err)
+	}
+
+	if !resume {
+		if err := truncateEvents(db.DB); err != nil {
+			return fmt.Errorf("failed to truncate events: %w", err)
+		}
 	}
 
 	if err := db.SetHealth(ctx, "unknown", "Just started"); err != nil {
@@ -73,9 +79,23 @@ func InitCoreModels(ctx context.Context, db *Gorm) error {
 	return nil
 }
 
+func truncateEvents(db *gorm.DB) error {
+	tables := []string{
+		"core.events",
+	}
+
+	for _, table := range tables {
+		if err := db.Exec(fmt.Sprintf("TRUNCATE TABLE %s CASCADE;", table)).Error; err != nil {
+			return fmt.Errorf("failed to truncate %s: %w", table, err)
+		}
+	}
+
+	return nil
+}
+
 // InitSubgraphModels runs migrations for subgraph-specific models.
 // It also creates and validates the `latest_report_id` foreign key.
-func InitSubgraphModels(ctx context.Context, db *Gorm) error {
+func InitSubgraphModels(ctx context.Context, db *Gorm, resume bool) error {
 	if err := db.DB.AutoMigrate(
 		&subgraph.Meta{},
 		&subgraph.BlockInfo{},
@@ -95,6 +115,7 @@ func InitSubgraphModels(ctx context.Context, db *Gorm) error {
 		&subgraph.StrategyReportEvent{},
 		&subgraph.StrategyReportResult{},
 		&subgraph.Token{},
+		&subgraph.TokenAccount{},
 		&subgraph.TokenBurn{},
 		&subgraph.TokenMint{},
 		&subgraph.TokenStats{},
@@ -107,8 +128,10 @@ func InitSubgraphModels(ctx context.Context, db *Gorm) error {
 		return fmt.Errorf("migration failed: %w", err)
 	}
 
-	if err := truncateSubgraphTables(db.DB); err != nil {
-		return fmt.Errorf("failed to truncate subgraph tables: %w", err)
+	if !resume {
+		if err := truncateSubgraphTables(db.DB); err != nil {
+			return fmt.Errorf("failed to truncate subgraph tables: %w", err)
+		}
 	}
 
 	if err := migrateWithLatestReport(db.DB); err != nil {
@@ -137,6 +160,7 @@ func truncateSubgraphTables(db *gorm.DB) error {
 		"strategy_report_events",
 		"strategy_report_results",
 		"tokens",
+		"token_accounts",
 		"token_burns",
 		"token_mints",
 		"token_stats",

@@ -8,11 +8,12 @@ import (
 )
 
 type TokenStats struct {
-	ID         string           `gorm:"primaryKey;column:id"` // Aggregated ID (Int8)
-	Timestamp  string           `gorm:"column:timestamp"`     // Timestamp of aggregation
-	Vault      *Vault           `gorm:"foreignKey:VaultID"`   // Vault reference
-	VaultID    string           `gorm:"column:vault_id"`      // Vault ID
-	SharePrice types.BigDecimal `gorm:"column:share_price"`   // Aggregated share price (last) (BigDecimal)
+	ID         string           `gorm:"primaryKey;column:id"`  // Aggregated ID (Int8)
+	Timestamp  types.BigInt     `gorm:"column:timestamp"`      // Timestamp of aggregation
+	Vault      *Vault           `gorm:"foreignKey:VaultID"`    // Vault reference
+	VaultID    string           `gorm:"column:vault_id"`       // Vault ID
+	SharePrice types.BigDecimal `gorm:"column:share_price"`    // Aggregated share price (last) (BigDecimal)
+	Interval   string           `gorm:"not null;default:hour"` // "hour", "day" etc.
 }
 
 func (TokenStats) TableName() string {
@@ -20,7 +21,7 @@ func (TokenStats) TableName() string {
 }
 
 func (t *TokenStats) Init() {
-	t.Timestamp = ""
+	t.Timestamp.Zero()
 	t.Vault = nil
 	t.VaultID = ""
 	t.SharePrice.Zero()
