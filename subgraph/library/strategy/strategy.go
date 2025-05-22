@@ -170,8 +170,13 @@ func AfterOrcaSwap(ctx context.Context, db *gorm.DB, ev events.OrcaAfterSwapEven
 		return nil
 	}
 	hundred := types.NewBigDecimalFromFloat(100)
-	if vaultTotalAllocation == nil || vaultTotalAllocation.Sign() == 0 {
+
+	strategy.TotalAllocation = utils.Val(ev.TotalAssets.ToBigDecimal())
+	log.Debugf("[strategy] total allocation: %s", strategy.TotalAllocation.String())
+
+	if vaultTotalAllocation != nil && vaultTotalAllocation.Sign() != 0 {
 		strategy.TotalAllocationPercent = utils.Val(strategy.TotalAllocation.SafeDiv(vaultTotalAllocation).Mul(&hundred))
+		log.Debugf("[strategy] total allocation percent: %s", strategy.TotalAllocationPercent.String())
 	}
 
 	if ev.Buy {
@@ -189,9 +194,11 @@ func AfterOrcaSwap(ctx context.Context, db *gorm.DB, ev events.OrcaAfterSwapEven
 		strategy.EffectiveInvestedAmount = utils.Val(strategy.EffectiveInvestedAmount.Sub(costBasisForSale))
 	}
 	strategy.ProfitOrLoss = utils.Val(totalAssets.Sub(&strategy.EffectiveInvestedAmount).ToBigDecimal())
+	log.Debugf("[strategy] profit or loss: %s", strategy.ProfitOrLoss.String())
 
 	if strategy.EffectiveInvestedAmount.Sign() != 0 {
 		strategy.ProfitOrLossPercent = utils.Val(strategy.ProfitOrLoss.SafeDiv(strategy.EffectiveInvestedAmount.ToBigDecimal()).Mul(&hundred))
+		log.Debugf("[strategy] profit or loss percent: %s", strategy.ProfitOrLossPercent.String())
 	}
 
 	if err := strategy.Save(ctx, db); err != nil {

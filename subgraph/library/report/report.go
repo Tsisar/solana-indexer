@@ -47,14 +47,14 @@ func CreateReport(ctx context.Context, db *gorm.DB, ev events.StrategyReportedEv
 
 		previousReportId := strategy.LatestReportID
 
-		log.Debugf("[report] Getting previous report ID for strategy %s: %s.", strategy.ID, previousReportId)
+		log.Debugf("[report] Getting previous report ID for strategy %s: %s.", strategy.ID, *previousReportId)
 
 		strategy.LatestReportID = &currentReport.ID
 		if err := strategy.Save(ctx, db); err != nil {
 			return fmt.Errorf("[report] failed to save strategy: %w", err)
 		}
 
-		if previousReportId != nil && *previousReportId != "" {
+		if *previousReportId != "" {
 			previousReport := subgraph.StrategyReport{ID: *previousReportId}
 			ok, err = previousReport.Load(ctx, db)
 			if err != nil {
@@ -64,12 +64,12 @@ func CreateReport(ctx context.Context, db *gorm.DB, ev events.StrategyReportedEv
 				log.Warnf("[report] Report result NOT created. Current report not found: %s", previousReportId)
 				return nil
 			}
-			log.Debugf("[report] Creating report result for strategy %s: %s vs %s.", strategy.ID, previousReportId, currentReport.ID)
+			log.Debugf("[report] Creating report result for strategy %s: %s vs %s.", strategy.ID, *previousReportId, currentReport.ID)
 			if err := createReportResult(ctx, db, previousReport, currentReport, transaction); err != nil {
 				return fmt.Errorf("[report] failed to create report result: %w", err)
 			}
 		} else {
-			log.Warnf("[report] Report result NOT created. Previous report not found: %s", previousReportId)
+			log.Warnf("[report] Report result NOT created. Previous report not found: %s", *previousReportId)
 		}
 	}
 	return nil
