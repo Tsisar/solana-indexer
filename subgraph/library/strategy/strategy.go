@@ -256,6 +256,7 @@ func InitOrca(ctx context.Context, db *gorm.DB, ev events.OrcaInitEvent) error {
 		return fmt.Errorf("[strategy] failed to save token: %w", err)
 	}
 
+	strategy.AssetID = &tokenMint.ID
 	if err := strategy.Save(ctx, db); err != nil {
 		return fmt.Errorf("[strategy] failed to save strategy: %w", err)
 	}
