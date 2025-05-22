@@ -280,7 +280,7 @@ func generateEventMappers(mapingDir, idlName string, idl IDL) []string {
 
 	for _, ev := range idl.Events {
 		m.WriteString(fmt.Sprintf("func map%s(ctx context.Context, db *gorm.DB, event core.Event) error {\n", ev.Name))
-		m.WriteString(fmt.Sprintf("\tlog.Infof(\"Mapping %s: %%s\", event.TransactionSignature)\n", ev.Name))
+		m.WriteString(fmt.Sprintf("\tlog.Infof(\"[mapping] %s: %%s\", event.TransactionSignature)\n", ev.Name))
 		m.WriteString(fmt.Sprintf("\tvar ev events.%s\n", ev.Name))
 		m.WriteString("\tif err := json.Unmarshal(event.JsonEv, &ev); err != nil {\n")
 		m.WriteString(fmt.Sprintf("\t\treturn fmt.Errorf(\"failed to decode %s: %%w\", err)\n", ev.Name))

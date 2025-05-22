@@ -1,8 +1,8 @@
 package events
 
 import (
+	"github.com/Tsisar/solana-indexer/subgraph/types"
 	"github.com/gagliardetto/solana-go"
-	"math/big"
 )
 
 type TokenMetaData struct {
@@ -13,6 +13,6 @@ type TokenMetaData struct {
 type TokenData struct {
 	Mint     solana.PublicKey
 	Account  solana.PublicKey
-	Decimals big.Int
+	Decimals types.BigInt
 	Metadata TokenMetaData
 }

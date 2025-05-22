@@ -2,43 +2,44 @@ package subgraph
 
 import (
 	"context"
-	"errors"
+	"fmt"
+	"github.com/Tsisar/solana-indexer/storage/model/generic"
+	"github.com/Tsisar/solana-indexer/subgraph/types"
 	"gorm.io/gorm"
-	"gorm.io/gorm/clause"
 )
 
 type Vault struct {
-	ID                    string      `gorm:"primaryKey;column:id"`                    // Vault address
-	Token                 *Token      `gorm:"foreignKey:TokenID"`                      // Token this Vault will accrue
-	TokenID               string      `gorm:"column:token_id"`                         // Token ID
-	ShareToken            *Token      `gorm:"foreignKey:ShareTokenID"`                 // Token representing Shares in the Vault
-	ShareTokenID          string      `gorm:"column:share_token_id"`                   // Share Token ID
-	DepositLimit          string      `gorm:"column:deposit_limit;default:0"`          // The maximum amount of tokens that can be deposited in this Vault (BigInt)
-	Shutdown              bool        `gorm:"column:shutdown"`                         // Is vault in shutdown
-	TotalDebt             string      `gorm:"column:total_debt;default:0"`             // Total amount of assets that has been deposited in strategies (BigInt)
-	TotalIdle             string      `gorm:"column:total_idle;default:0"`             // Current assets held in the vault contract (BigInt)
-	MinTotalIdle          string      `gorm:"column:min_total_idle;default:0"`         // Min total idle (BigInt)
-	TotalShare            string      `gorm:"column:total_share;default:0"`            // Total Share (BigInt)
-	Apr                   string      `gorm:"column:apr;default:0"`                    // Annual Percentage Rate (BigDecimal → string)
-	SharesSupply          string      `gorm:"column:shares_supply;default:0"`          // Current supply of Shares (BigInt)
-	BalanceTokens         string      `gorm:"column:balance_tokens;default:0"`         // Balance of Tokens in the Vault and its Strategies (BigInt)
-	BalanceTokensIdle     string      `gorm:"column:balance_tokens_idle;default:0"`    // Current idle Token balance (BigInt)
-	Activation            string      `gorm:"column:activation;default:0"`             // Creation timestamp (BigInt)
-	PerformanceFees       string      `gorm:"column:performance_fees;default:0"`       // Reported protocol fees amount for the vault (BigInt)
-	TotalAllocation       string      `gorm:"column:total_allocation;default:0"`       // Total allocation after orca swap (BigDecimal)
-	Accountant            *Accountant `gorm:"foreignKey:AccountantID"`                 // Accountant
-	AccountantID          string      `gorm:"column:accountant_id"`                    // Accountant ID
-	MinUserDeposit        string      `gorm:"column:min_user_deposit;default:0"`       // Min user deposit (BigInt)
-	UserDeposit           string      `gorm:"column:user_deposit;default:0"`           // User deposit (BigInt)
-	UserDepositLimit      string      `gorm:"column:user_deposit_limit;default:0"`     // User deposit limit (BigInt)
-	KycVerifiedOnly       bool        `gorm:"column:kyc_verified_only"`                // KYC verified only
-	DirectWithdrawEnabled bool        `gorm:"column:direct_withdraw_enabled"`          // Direct withdraw enabled
-	DirectDepositEnabled  bool        `gorm:"column:direct_deposit_enabled"`           // Direct deposit enabled
-	WhitelistedOnly       bool        `gorm:"column:whitelisted_only"`                 // Whitelisted only
-	ProfitMaxUnlockTime   string      `gorm:"column:profit_max_unlock_time;default:0"` // Profit max unlock time (BigInt)
-	CurrentSharePrice     string      `gorm:"column:current_share_price;default:0"`    // Current share price (BigInt)
-	LastUpdate            string      `gorm:"column:last_update;default:0"`            // Last updated timestamp (BigInt)
-	TotalPriorityFees     string      `gorm:"column:total_priority_fees;default:0"`    // Priority fees (BigInt)
+	ID                    string           `gorm:"primaryKey;column:id"`           // Vault address
+	Token                 *Token           `gorm:"foreignKey:TokenID"`             // Token this Vault will accrue
+	TokenID               string           `gorm:"column:token_id"`                // Token ID
+	ShareToken            *Token           `gorm:"foreignKey:ShareTokenID"`        // Token representing Shares in the Vault
+	ShareTokenID          string           `gorm:"column:share_token_id"`          // Share Token ID
+	DepositLimit          types.BigInt     `gorm:"column:deposit_limit"`           // The maximum amount of tokens that can be deposited in this Vault (BigInt)
+	Shutdown              bool             `gorm:"column:shutdown"`                // Is vault in shutdown
+	TotalDebt             types.BigInt     `gorm:"column:total_debt"`              // Total amount of assets that has been deposited in strategies (BigInt)
+	TotalIdle             types.BigInt     `gorm:"column:total_idle"`              // Current assets held in the vault contract (BigInt)
+	MinTotalIdle          types.BigInt     `gorm:"column:min_total_idle"`          // Min total idle (BigInt)
+	TotalShare            types.BigInt     `gorm:"column:total_share"`             // Total Share (BigInt)
+	Apr                   types.BigDecimal `gorm:"column:apr"`                     // Annual Percentage Rate (BigDecimal → string)
+	SharesSupply          types.BigInt     `gorm:"column:shares_supply"`           // Current supply of Shares (BigInt)
+	BalanceTokens         types.BigInt     `gorm:"column:balance_tokens"`          // Balance of Tokens in the Vault and its Strategies (BigInt)
+	BalanceTokensIdle     types.BigInt     `gorm:"column:balance_tokens_idle"`     // Current idle Token balance (BigInt)
+	Activation            types.BigInt     `gorm:"column:activation"`              // Creation timestamp (BigInt)
+	PerformanceFees       types.BigInt     `gorm:"column:performance_fees"`        // Reported protocol fees amount for the vault (BigInt)
+	TotalAllocation       types.BigDecimal `gorm:"column:total_allocation"`        // Total allocation after orca swap (BigDecimal)
+	Accountant            *Accountant      `gorm:"foreignKey:AccountantID"`        // Accountant
+	AccountantID          string           `gorm:"column:accountant_id"`           // Accountant ID
+	MinUserDeposit        types.BigInt     `gorm:"column:min_user_deposit"`        // Min user deposit (BigInt)
+	UserDeposit           types.BigInt     `gorm:"column:user_deposit"`            // User deposit (BigInt)
+	UserDepositLimit      types.BigInt     `gorm:"column:user_deposit_limit"`      // User deposit limit (BigInt)
+	KycVerifiedOnly       bool             `gorm:"column:kyc_verified_only"`       // KYC verified only
+	DirectWithdrawEnabled bool             `gorm:"column:direct_withdraw_enabled"` // Direct withdraw enabled
+	DirectDepositEnabled  bool             `gorm:"column:direct_deposit_enabled"`  // Direct deposit enabled
+	WhitelistedOnly       bool             `gorm:"column:whitelisted_only"`        // Whitelisted only
+	ProfitMaxUnlockTime   types.BigInt     `gorm:"column:profit_max_unlock_time"`  // Profit max unlock time (BigInt)
+	CurrentSharePrice     types.BigInt     `gorm:"column:current_share_price"`     // Current share price (BigInt)
+	LastUpdate            types.BigInt     `gorm:"column:last_update"`             // Last updated timestamp (BigInt)
+	TotalPriorityFees     types.BigInt     `gorm:"column:total_priority_fees"`     // Priority fees (BigInt)
 
 	// Derived relationships
 	Strategies         []*Strategy           `gorm:"foreignKey:VaultID"` // Strategies for this Vault
@@ -48,30 +49,85 @@ type Vault struct {
 	WithdrawalRequests []*WithdrawalRequest  `gorm:"foreignKey:VaultID"` // Withdrawal requests for the Vault
 }
 
-func (*Vault) TableName() string {
+func (Vault) TableName() string {
 	return "vaults"
 }
 
-func (v *Vault) Load(ctx context.Context, db *gorm.DB) (bool, error) {
-	err := db.WithContext(ctx).
-		Where("id = ?", v.ID).
-		First(v).Error
+func (v *Vault) Init() {
+	v.Token = nil
+	v.TokenID = ""
 
-	switch {
-	case errors.Is(err, gorm.ErrRecordNotFound):
-		return false, nil
-	case err != nil:
-		return false, err
-	default:
-		return true, nil
-	}
+	v.ShareToken = nil
+	v.ShareTokenID = ""
+
+	v.DepositLimit.Zero()
+	v.Shutdown = false
+	v.TotalDebt.Zero()
+	v.TotalIdle.Zero()
+	v.MinTotalIdle.Zero()
+	v.TotalShare.Zero()
+	v.Apr.Zero()
+	v.SharesSupply.Zero()
+	v.BalanceTokens.Zero()
+	v.BalanceTokensIdle.Zero()
+	v.Activation.Zero()
+	v.PerformanceFees.Zero()
+	v.TotalAllocation.Zero()
+
+	v.Accountant = nil
+	v.AccountantID = ""
+
+	v.MinUserDeposit.Zero()
+	v.UserDeposit.Zero()
+	v.UserDepositLimit.Zero()
+
+	v.KycVerifiedOnly = false
+	v.DirectWithdrawEnabled = false
+	v.DirectDepositEnabled = false
+	v.WhitelistedOnly = false
+
+	v.ProfitMaxUnlockTime.Zero()
+	v.CurrentSharePrice.Zero()
+	v.LastUpdate.Zero()
+	v.TotalPriorityFees.Zero()
+
+	v.Strategies = nil
+	v.Deposits = nil
+	v.Withdrawals = nil
+	v.HistoricalApr = nil
+	v.WithdrawalRequests = nil
+}
+
+func (v *Vault) GetID() string {
+	return v.ID
+}
+
+func (v *Vault) Load(ctx context.Context, db *gorm.DB) (bool, error) {
+	return generic.LoadWithPreloads(ctx, db, v,
+		"Strategies",
+		"Deposits",
+		"Withdrawals",
+		"HistoricalApr",
+		"WithdrawalRequests",
+	)
 }
 
 func (v *Vault) Save(ctx context.Context, db *gorm.DB) error {
-	return db.WithContext(ctx).
-		Clauses(clause.OnConflict{
-			Columns:   []clause.Column{{Name: "id"}},
-			UpdateAll: true,
-		}).
-		Create(v).Error
+	return generic.Save(ctx, db, v)
+}
+
+// GetShareTokenMints returns a list of share token mints from the database.
+func GetShareTokenMints(ctx context.Context, db *gorm.DB) ([]string, error) {
+	var vaults []Vault
+
+	if err := db.WithContext(ctx).Select("share_token_id").Find(&vaults).Error; err != nil {
+		return nil, fmt.Errorf("failed to fetch share token mints: %w", err)
+	}
+
+	var mints []string
+	for _, vault := range vaults {
+		mints = append(mints, vault.ShareTokenID)
+	}
+
+	return mints, nil
 }

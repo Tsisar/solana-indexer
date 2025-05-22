@@ -6,92 +6,27 @@ import (
 	"fmt"
 	"github.com/Tsisar/extended-log-go/log"
 	"github.com/Tsisar/solana-indexer/core/config"
-	"github.com/Tsisar/solana-indexer/core/parser"
 	"github.com/Tsisar/solana-indexer/core/utils"
 	"github.com/Tsisar/solana-indexer/storage"
 	"github.com/Tsisar/solana-indexer/storage/model/core"
-	"github.com/Tsisar/solana-indexer/subgraph"
 	"github.com/gagliardetto/solana-go"
 	"github.com/gagliardetto/solana-go/rpc"
-	"sync"
 )
 
-var (
-	runMu      sync.Mutex                        // Mutex to guard access to isRunning and hasPending flags
-	isRunning  bool                              // Indicates whether the fetcher is currently running
-	hasPending bool                              // Indicates if a retry is queued while fetcher is running
-	client     = rpc.New(config.App.RPCEndpoint) // RPC client used for querying the Solana blockchain
-)
+var client = rpc.New(config.App.RPCEndpoint) // RPC client used for querying the Solana blockchain
 
-// Start is the main entry point for the fetcher module.
-// It begins a fetch cycle without resuming from the last signature.
-func Start(ctx context.Context, db *storage.Gorm) {
-	requestRun(ctx, db, "Start", false)
-}
-
-// Resume restarts the fetcher with resume=true,
-// allowing it to continue from the last saved signature per program.
-func Resume(ctx context.Context, db *storage.Gorm) {
-	requestRun(ctx, db, "Resume", true)
-}
-
-// requestRun ensures only one fetcher instance runs at a time.
-// If another run is already in progress, it optionally queues a retry.
-func requestRun(ctx context.Context, db *storage.Gorm, label string, resume bool) {
-	runMu.Lock()
-	if isRunning {
-		if hasPending {
-			log.Infof("%s: fetcher already running and a retry is already queued — skipping", label)
-			runMu.Unlock()
-			return
-		}
-		hasPending = true
-		log.Infof("%s: fetcher already running — queuing one retry", label)
-		runMu.Unlock()
-		return
-	}
-	isRunning = true
-	runMu.Unlock()
-
-	go runFetcher(ctx, db, label, resume)
-}
-
-// runFetcher handles a complete run of the fetcher,
-// and reruns once if a retry was queued while processing.
-func runFetcher(ctx context.Context, db *storage.Gorm, label string, resume bool) {
-	for {
-		log.Infof("%s: fetcher started", label)
-		if err := fetch(ctx, db, resume); err != nil {
-			subgraph.MapError(ctx, db, err)
-			log.Fatalf("%s failed: %v", label, err)
-		}
-
-		runMu.Lock()
-		if hasPending {
-			hasPending = false
-			runMu.Unlock()
-			log.Infof("%s: rerunning due to queued retry", label)
-			continue
-		}
-		isRunning = false
-		runMu.Unlock()
-		break
-	}
-}
-
-// fetch orchestrates the entire data fetching and parsing process:
+// Start orchestrates the entire data fetching and parsing process:
 // 1. Fetch historical signatures,
 // 2. Fetch full transaction JSONs,
 // 3. Parse saved transactions.
-func fetch(ctx context.Context, db *storage.Gorm, resume bool) error {
+func Start(ctx context.Context, db *storage.Gorm, resume bool, done chan struct{}) error {
+	defer close(done) // ensure the signal is sent even on error
+
 	if err := fetchHistoricalSignatures(ctx, db, resume); err != nil {
-		return fmt.Errorf("failed to fetch historical signatures: %w", err)
+		return fmt.Errorf("[fetcher] failed to fetch historical signatures: %w", err)
 	}
 	if err := fetchRawTransactions(ctx, db); err != nil {
-		return fmt.Errorf("failed to fetch full transactions: %w", err)
-	}
-	if err := parser.ParseSavedTransactions(ctx, db, resume); err != nil {
-		return fmt.Errorf("failed to parse transactions: %w", err)
+		return fmt.Errorf("[fetcher] failed to fetch full transactions: %w", err)
 	}
 	return nil
 }
@@ -101,12 +36,11 @@ func fetch(ctx context.Context, db *storage.Gorm, resume bool) error {
 // once the last known signature is reached.
 func fetchHistoricalSignatures(ctx context.Context, db *storage.Gorm, resume bool) error {
 	programs := config.App.Programs
-	r := config.App.EnableSignatureResume || resume
 
 	for _, program := range programs {
-		sigs, err := fetchHistoricalSignaturesForAddress(ctx, db, program, r)
+		sigs, err := fetchHistoricalSignaturesForAddress(ctx, db, program, resume)
 		if err != nil {
-			return fmt.Errorf("failed to fetch signatures for %s: %w", program, err)
+			return fmt.Errorf("[fetcher] failed to fetch signatures for %s: %w", program, err)
 		}
 
 		for _, sig := range sigs {
@@ -118,10 +52,10 @@ func fetchHistoricalSignatures(ctx context.Context, db *storage.Gorm, resume boo
 			}
 
 			if err := db.SaveTransaction(ctx, &transaction, program); err != nil {
-				return fmt.Errorf("failed to save transaction %s: %w", signatureStr, err)
+				return fmt.Errorf("[fetcher] failed to save transaction %s: %w", signatureStr, err)
 			}
 		}
-		log.Infof("Fetched %d signatures for program %s", len(sigs), program)
+		log.Infof("[fetcher] Fetched %d signatures for program %s", len(sigs), program)
 	}
 	return nil
 }
@@ -136,16 +70,16 @@ func fetchHistoricalSignaturesForAddress(ctx context.Context, db *storage.Gorm, 
 
 	if resume {
 		if lastSigStr, err := db.GetLatestSavedSignature(ctx, address); err != nil {
-			log.Errorf("get last saved signature failed: %v", err)
+			log.Errorf("[fetcher] get last saved signature failed: %v", err)
 			return nil, err
 		} else if lastSigStr != "" {
 			until = solana.MustSignatureFromBase58(lastSigStr)
-			log.Infof("Using last saved signature %s as lower bound for program %s", lastSigStr, address)
+			log.Infof("[fetcher] Using last saved signature %s as lower bound for program %s", lastSigStr, address)
 		}
 	}
 
 	for {
-		log.Debugf("Fetching signatures from %s to %s", before, until)
+		log.Debugf("[fetcher] Fetching signatures from %s to %s", before, until)
 		opts := &rpc.GetSignaturesForAddressOpts{
 			Limit:      utils.Ptr(1000),
 			Before:     before,
@@ -159,7 +93,7 @@ func fetchHistoricalSignaturesForAddress(ctx context.Context, db *storage.Gorm, 
 
 		sigs, err := utils.Retry(getSignaturesForAddressWithOpts)
 		if err != nil {
-			return nil, fmt.Errorf("get signatures failed: %w", err)
+			return nil, fmt.Errorf("[fetcher] get signatures failed: %w", err)
 		}
 
 		if len(sigs) == 0 {
@@ -178,24 +112,24 @@ func fetchHistoricalSignaturesForAddress(ctx context.Context, db *storage.Gorm, 
 func fetchRawTransactions(ctx context.Context, db *storage.Gorm) error {
 	sigs, err := db.GetOrderedNoRawSignatures(ctx)
 	if err != nil {
-		return fmt.Errorf("get unparsed signatures failed: %w", err)
+		return fmt.Errorf("[fetcher] get unparsed signatures failed: %w", err)
 	}
 
 	for _, sig := range sigs {
 		txRes, err := FetchRawTransaction(ctx, sig)
 		if err != nil {
-			return fmt.Errorf("fetch raw transaction failed: %w", err)
+			return fmt.Errorf("[fetcher] fetch raw transaction failed: %w", err)
 		}
 
 		raw, err := json.Marshal(txRes)
 		if err != nil {
-			return fmt.Errorf("marshal raw transaction failed: %w", err)
+			return fmt.Errorf("[fetcher] marshal raw transaction failed: %w", err)
 		}
 
 		if err := db.UpdateTransactionRaw(ctx, sig, raw); err != nil {
-			return fmt.Errorf("save transaction failed: %w", err)
+			return fmt.Errorf("[fetcher] save transaction failed: %w", err)
 		}
-		log.Infof("Saved raw transaction: slot: %d tx: %s", txRes.Slot, sig)
+		log.Infof("[fetcher] Saved raw transaction: slot: %d tx: %s", txRes.Slot, sig)
 	}
 	return nil
 }

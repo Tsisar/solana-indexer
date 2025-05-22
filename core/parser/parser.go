@@ -9,65 +9,95 @@ import (
 	"github.com/gagliardetto/solana-go/rpc"
 )
 
-// ParseTransaction takes a raw JSON-encoded transaction and its signature,
-// unmarshals it, and then extracts both token instructions and log-based events.
-// It stores decoded events into the database.
-func ParseTransaction(ctx context.Context, db *storage.Gorm, rawTx []byte, sig string) error {
-	var tx rpc.GetTransactionResult
+// Start processes all unparsed transactions from the DB
+// and then continues parsing from the real-time stream.
+// Returns error if any transaction fails to parse.
+func Start(ctx context.Context, db *storage.Gorm, resume bool, done chan struct{}, in <-chan string) error {
+	// Load list of signatures that are not parsed
+	signatures, err := db.GetOrderedNoParsedSignatures(ctx, resume)
+	if err != nil {
+		return fmt.Errorf("[parser] failed to load signatures to parse: %w", err)
+	}
+	log.Infof("[parser] Found %d transactions to parse", len(signatures))
 
-	// Unmarshal the raw JSON transaction
-	if err := json.Unmarshal(rawTx, &tx); err != nil {
-		return fmt.Errorf("unmarshal tx JSON: %w", err)
+	for _, sig := range signatures {
+		if err := parseOneTransaction(ctx, db, resume, sig); err != nil {
+			return fmt.Errorf("[parser] failed to parse transaction %s: %w", sig, err)
+		}
+	}
+	done <- struct{}{}
+
+	log.Infof("[parser] done with DB, switching to real-time stream...")
+
+	// Switch to processing incoming signatures from WebSocket stream
+	for {
+		select {
+		case <-ctx.Done():
+			log.Debugf("[parser] context cancelled")
+			return nil
+		case sig := <-in:
+			if err := parseOneTransaction(ctx, db, true, sig); err != nil {
+				return fmt.Errorf("[parser] failed to parse real-time transaction %s: %w", sig, err)
+			}
+		}
+	}
+}
+
+// parseOneTransaction coordinates parsing of one transaction from DB by signature.
+func parseOneTransaction(ctx context.Context, db *storage.Gorm, resume bool, sig string) error {
+	if resume {
+		parsed, err := db.IsParsed(ctx, sig)
+		if err != nil {
+			return fmt.Errorf("[parser] failed to check if %s is parsed: %w", sig, err)
+		}
+		if parsed {
+			log.Warnf("[parser] Transaction %s already parsed, skipping...", sig)
+			return nil
+		}
 	}
 
-	// If there are no logs, nothing to parse
-	if tx.Meta == nil || tx.Meta.LogMessages == nil {
-		log.Warnf("Transaction %s has no logs", sig)
-		return nil
+	// Retrieve raw transaction from DB
+	rawTx, err := db.GetRawTransaction(ctx, sig)
+	if err != nil {
+		return fmt.Errorf("[parser] failed to get raw transaction %s: %w", sig, err)
 	}
 
-	// Extract and save token-related events
-	log.Infof("Parsing token instructions for transaction %s...", sig)
-	if err := parseTokenInstructions(ctx, db, sig, &tx); err != nil {
-		return fmt.Errorf("error parsing token instructions in %s: %w", sig, err)
+	// Parse and store token instructions and logs
+	if err := parseTransaction(ctx, db, rawTx, sig); err != nil {
+		return fmt.Errorf("[parser] failed to parse transaction %s: %w", sig, err)
 	}
 
-	// Extract and save Borsh log-based events
-	log.Infof("Parsing logs for transaction %s...", sig)
-	if err := parseLogs(ctx, db, sig, &tx); err != nil {
-		return fmt.Errorf("error parsing logs in %s: %w", sig, err)
+	// Mark transaction as parsed in DB
+	if err := db.MarkParsed(ctx, sig); err != nil {
+		return fmt.Errorf("[parser] failed to mark %s as parsed: %w", sig, err)
 	}
 
 	return nil
 }
 
-// ParseSavedTransactions iterates over all transactions that are stored in the database
-// but have not yet been parsed (i.e., their `parsed` flag is false).
-// It loads the raw transaction, parses it, and updates the `parsed` flag.
-func ParseSavedTransactions(ctx context.Context, db *storage.Gorm, resume bool) error {
-	// Get list of transactions with no parsed events
-	signatures, err := db.GetOrderedNoParsedSignatures(ctx, resume)
-	if err != nil {
-		return err
+// parseTransaction unmarshals the JSON payload and extracts events and instructions.
+func parseTransaction(ctx context.Context, db *storage.Gorm, rawTx []byte, sig string) error {
+	var tx rpc.GetTransactionResult
+
+	// Decode JSON
+	if err := json.Unmarshal(rawTx, &tx); err != nil {
+		return fmt.Errorf("[parser] unmarshal tx JSON: %w", err)
 	}
-	log.Infof("Found %d signatures to parse", len(signatures))
 
-	for _, sig := range signatures {
-		// Retrieve raw transaction payload
-		rawTx, err := db.GetRawTransaction(ctx, sig)
-		if err != nil {
-			return fmt.Errorf("failed to get raw transaction: %w", err)
-		}
-
-		// Parse and extract events from the transaction
-		if err := ParseTransaction(ctx, db, rawTx, sig); err != nil {
-			return fmt.Errorf("failed to parse transaction %s: %w", sig, err)
-		}
-
-		// Mark transaction as parsed in DB
-		if err := db.MarkParsed(ctx, sig); err != nil {
-			log.Errorf("failed to mark parsed %s: %v", sig, err)
-		}
+	if tx.Meta == nil || tx.Meta.LogMessages == nil {
+		log.Warnf("[parser] Transaction %s has no logs", sig)
+		return nil
 	}
+
+	log.Infof("[parser] Parsing instructions for %s", sig)
+	if err := parseTokenInstructions(ctx, db, sig, &tx); err != nil {
+		return fmt.Errorf("[parser] error parsing instructions in %s: %w", sig, err)
+	}
+
+	log.Infof("[parser] Parsing logs for %s", sig)
+	if err := parseLogs(ctx, db, sig, &tx); err != nil {
+		return fmt.Errorf("[parser] error parsing logs in %s: %w", sig, err)
+	}
+
 	return nil
 }

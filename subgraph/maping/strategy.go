@@ -12,17 +12,17 @@ import (
 )
 
 func mapDepositLimitSetEvent(ctx context.Context, db *gorm.DB, event core.Event) error {
-	log.Infof("Mapping DepositLimitSetEvent: %s", event.TransactionSignature)
+	log.Infof("[mapping] DepositLimitSetEvent: %s", event.TransactionSignature)
 	var ev events.DepositLimitSetEvent
 	if err := json.Unmarshal(event.JsonEv, &ev); err != nil {
-		return fmt.Errorf("failed to decode DepositLimitSetEvent: %w", err)
+		return fmt.Errorf("[mapping] failed to decode DepositLimitSetEvent: %w", err)
 	}
 	// TODO: implement mapping logic
 	return nil
 }
 
 func mapEmergencyWithdrawEvent(ctx context.Context, db *gorm.DB, event core.Event) error {
-	log.Infof("Mapping EmergencyWithdrawEvent: %s", event.TransactionSignature)
+	log.Infof("[mapping] EmergencyWithdrawEvent: %s", event.TransactionSignature)
 	var ev events.EmergencyWithdrawEvent
 	if err := json.Unmarshal(event.JsonEv, &ev); err != nil {
 		return fmt.Errorf("failed to decode EmergencyWithdrawEvent: %w", err)
@@ -32,7 +32,7 @@ func mapEmergencyWithdrawEvent(ctx context.Context, db *gorm.DB, event core.Even
 }
 
 func mapFundManagerDeployFundsEvent(ctx context.Context, db *gorm.DB, event core.Event) error {
-	log.Infof("Mapping FundManagerDeployFundsEvent: %s", event.TransactionSignature)
+	log.Infof("[mapping] FundManagerDeployFundsEvent: %s", event.TransactionSignature)
 	var ev events.FundManagerDeployFundsEvent
 	if err := json.Unmarshal(event.JsonEv, &ev); err != nil {
 		return fmt.Errorf("failed to decode FundManagerDeployFundsEvent: %w", err)
@@ -42,7 +42,7 @@ func mapFundManagerDeployFundsEvent(ctx context.Context, db *gorm.DB, event core
 }
 
 func mapFundManagerEmergencyWithdrawEvent(ctx context.Context, db *gorm.DB, event core.Event) error {
-	log.Infof("Mapping FundManagerEmergencyWithdrawEvent: %s", event.TransactionSignature)
+	log.Infof("[mapping] FundManagerEmergencyWithdrawEvent: %s", event.TransactionSignature)
 	var ev events.FundManagerEmergencyWithdrawEvent
 	if err := json.Unmarshal(event.JsonEv, &ev); err != nil {
 		return fmt.Errorf("failed to decode FundManagerEmergencyWithdrawEvent: %w", err)
@@ -52,7 +52,7 @@ func mapFundManagerEmergencyWithdrawEvent(ctx context.Context, db *gorm.DB, even
 }
 
 func mapFundManagerFreeFundsEvent(ctx context.Context, db *gorm.DB, event core.Event) error {
-	log.Infof("Mapping FundManagerFreeFundsEvent: %s", event.TransactionSignature)
+	log.Infof("[mapping] FundManagerFreeFundsEvent: %s", event.TransactionSignature)
 	var ev events.FundManagerFreeFundsEvent
 	if err := json.Unmarshal(event.JsonEv, &ev); err != nil {
 		return fmt.Errorf("failed to decode FundManagerFreeFundsEvent: %w", err)
@@ -62,7 +62,7 @@ func mapFundManagerFreeFundsEvent(ctx context.Context, db *gorm.DB, event core.E
 }
 
 func mapFundManagerHarvestAndReportEvent(ctx context.Context, db *gorm.DB, event core.Event) error {
-	log.Infof("Mapping FundManagerHarvestAndReportEvent: %s", event.TransactionSignature)
+	log.Infof("[mapping] FundManagerHarvestAndReportEvent: %s", event.TransactionSignature)
 	var ev events.FundManagerHarvestAndReportEvent
 	if err := json.Unmarshal(event.JsonEv, &ev); err != nil {
 		return fmt.Errorf("failed to decode FundManagerHarvestAndReportEvent: %w", err)
@@ -72,7 +72,7 @@ func mapFundManagerHarvestAndReportEvent(ctx context.Context, db *gorm.DB, event
 }
 
 func mapFundManagerStrategyStateUpdateEvent(ctx context.Context, db *gorm.DB, event core.Event) error {
-	log.Infof("Mapping FundManagerStrategyStateUpdateEvent: %s", event.TransactionSignature)
+	log.Infof("[mapping] FundManagerStrategyStateUpdateEvent: %s", event.TransactionSignature)
 	var ev events.FundManagerStrategyStateUpdateEvent
 	if err := json.Unmarshal(event.JsonEv, &ev); err != nil {
 		return fmt.Errorf("failed to decode FundManagerStrategyStateUpdateEvent: %w", err)
@@ -82,17 +82,19 @@ func mapFundManagerStrategyStateUpdateEvent(ctx context.Context, db *gorm.DB, ev
 }
 
 func mapHarvestAndReportDTFEvent(ctx context.Context, db *gorm.DB, event core.Event) error {
-	log.Infof("Mapping HarvestAndReportDTFEvent: %s", event.TransactionSignature)
+	log.Infof("[mapping] HarvestAndReportDTFEvent: %s", event.TransactionSignature)
 	var ev events.HarvestAndReportDTFEvent
 	if err := json.Unmarshal(event.JsonEv, &ev); err != nil {
 		return fmt.Errorf("failed to decode HarvestAndReportDTFEvent: %w", err)
 	}
-	// TODO: implement mapping logic
+	if err := strategy.UpdateDTFReport(ctx, db, ev); err != nil {
+		return fmt.Errorf("failed to update DTF report: %w", err)
+	}
 	return nil
 }
 
 func mapMinDeployAmountSetEvent(ctx context.Context, db *gorm.DB, event core.Event) error {
-	log.Infof("Mapping MinDeployAmountSetEvent: %s", event.TransactionSignature)
+	log.Infof("[mapping] MinDeployAmountSetEvent: %s", event.TransactionSignature)
 	var ev events.MinDeployAmountSetEvent
 	if err := json.Unmarshal(event.JsonEv, &ev); err != nil {
 		return fmt.Errorf("failed to decode MinDeployAmountSetEvent: %w", err)
@@ -102,67 +104,81 @@ func mapMinDeployAmountSetEvent(ctx context.Context, db *gorm.DB, event core.Eve
 }
 
 func mapOrcaAfterSwapEvent(ctx context.Context, db *gorm.DB, event core.Event) error {
-	log.Infof("Mapping OrcaAfterSwapEvent: %s", event.TransactionSignature)
+	log.Infof("[mapping] OrcaAfterSwapEvent: %s", event.TransactionSignature)
 	var ev events.OrcaAfterSwapEvent
 	if err := json.Unmarshal(event.JsonEv, &ev); err != nil {
 		return fmt.Errorf("failed to decode OrcaAfterSwapEvent: %w", err)
 	}
-	// TODO: implement mapping logic
+	if err := strategy.AfterOrcaSwap(ctx, db, ev); err != nil {
+		return fmt.Errorf("failed to process OrcaAfterSwapEvent: %w", err)
+	}
 	return nil
 }
 
 func mapOrcaInitEvent(ctx context.Context, db *gorm.DB, event core.Event) error {
-	log.Infof("Mapping OrcaInitEvent: %s", event.TransactionSignature)
+	log.Infof("[mapping] OrcaInitEvent: %s", event.TransactionSignature)
 	var ev events.OrcaInitEvent
 	if err := json.Unmarshal(event.JsonEv, &ev); err != nil {
 		return fmt.Errorf("failed to decode OrcaInitEvent: %w", err)
 	}
-	// TODO: implement mapping logic
+	if err := strategy.InitOrca(ctx, db, ev); err != nil {
+		return fmt.Errorf("failed to process OrcaInitEvent: %w", err)
+	}
 	return nil
 }
 
 func mapSetPerformanceFeeEvent(ctx context.Context, db *gorm.DB, event core.Event) error {
-	log.Infof("Mapping SetPerformanceFeeEvent: %s", event.TransactionSignature)
+	log.Infof("[mapping] SetPerformanceFeeEvent: %s", event.TransactionSignature)
 	var ev events.SetPerformanceFeeEvent
 	if err := json.Unmarshal(event.JsonEv, &ev); err != nil {
 		return fmt.Errorf("failed to decode SetPerformanceFeeEvent: %w", err)
 	}
-	// TODO: implement mapping logic
+	if err := strategy.UpdatePerformanceFee(ctx, db, ev); err != nil {
+		return fmt.Errorf("failed to update performance fee: %w", err)
+	}
 	return nil
 }
 
 func mapStrategyDeployFundsEvent(ctx context.Context, db *gorm.DB, event core.Event) error {
-	log.Infof("Mapping StrategyDeployFundsEvent: %s", event.TransactionSignature)
+	log.Infof("[mapping] StrategyDeployFundsEvent: %s", event.TransactionSignature)
 	var ev events.StrategyDeployFundsEvent
 	if err := json.Unmarshal(event.JsonEv, &ev); err != nil {
 		return fmt.Errorf("failed to decode StrategyDeployFundsEvent: %w", err)
 	}
-	// TODO: implement mapping logic
+
+	if err := strategy.DeployFunds(ctx, db, ev); err != nil {
+		return fmt.Errorf("failed to deploy funds: %w", err)
+	}
 	return nil
 }
 
 func mapStrategyDepositEvent(ctx context.Context, db *gorm.DB, event core.Event) error {
-	log.Infof("Mapping StrategyDepositEvent: %s", event.TransactionSignature)
+	log.Infof("[mapping] StrategyDepositEvent: %s", event.TransactionSignature)
 	var ev events.StrategyDepositEvent
 	if err := json.Unmarshal(event.JsonEv, &ev); err != nil {
 		return fmt.Errorf("failed to decode StrategyDepositEvent: %w", err)
 	}
-	// TODO: implement mapping logic
+
+	if err := strategy.Deposit(ctx, db, ev); err != nil {
+		return fmt.Errorf("failed to deposit strategy: %w", err)
+	}
 	return nil
 }
 
 func mapStrategyFreeFundsEvent(ctx context.Context, db *gorm.DB, event core.Event) error {
-	log.Infof("Mapping StrategyFreeFundsEvent: %s", event.TransactionSignature)
+	log.Infof("[mapping] StrategyFreeFundsEvent: %s", event.TransactionSignature)
 	var ev events.StrategyFreeFundsEvent
 	if err := json.Unmarshal(event.JsonEv, &ev); err != nil {
 		return fmt.Errorf("failed to decode StrategyFreeFundsEvent: %w", err)
 	}
-	// TODO: implement mapping logic
+	if err := strategy.FreeFunds(ctx, db, ev); err != nil {
+		return fmt.Errorf("failed to free funds: %w", err)
+	}
 	return nil
 }
 
 func mapStrategyInitEvent(ctx context.Context, db *gorm.DB, event core.Event) error {
-	log.Infof("Mapping StrategyInitEvent: %s", event.TransactionSignature)
+	log.Infof("[mapping] StrategyInitEvent: %s", event.TransactionSignature)
 	var ev events.StrategyInitEvent
 	if err := json.Unmarshal(event.JsonEv, &ev); err != nil {
 		return fmt.Errorf("failed to decode StrategyInitEvent: %w", err)
@@ -174,7 +190,7 @@ func mapStrategyInitEvent(ctx context.Context, db *gorm.DB, event core.Event) er
 }
 
 func mapStrategyReallocEvent(ctx context.Context, db *gorm.DB, event core.Event) error {
-	log.Infof("Mapping StrategyReallocEvent: %s", event.TransactionSignature)
+	log.Infof("[mapping] StrategyReallocEvent: %s", event.TransactionSignature)
 	var ev events.StrategyReallocEvent
 	if err := json.Unmarshal(event.JsonEv, &ev); err != nil {
 		return fmt.Errorf("failed to decode StrategyReallocEvent: %w", err)
@@ -184,7 +200,7 @@ func mapStrategyReallocEvent(ctx context.Context, db *gorm.DB, event core.Event)
 }
 
 func mapStrategyShutdownEvent(ctx context.Context, db *gorm.DB, event core.Event) error {
-	log.Infof("Mapping StrategyShutdownEvent: %s", event.TransactionSignature)
+	log.Infof("[mapping] StrategyShutdownEvent: %s", event.TransactionSignature)
 	var ev events.StrategyShutdownEvent
 	if err := json.Unmarshal(event.JsonEv, &ev); err != nil {
 		return fmt.Errorf("failed to decode StrategyShutdownEvent: %w", err)
@@ -194,17 +210,20 @@ func mapStrategyShutdownEvent(ctx context.Context, db *gorm.DB, event core.Event
 }
 
 func mapStrategyWithdrawEvent(ctx context.Context, db *gorm.DB, event core.Event) error {
-	log.Infof("Mapping StrategyWithdrawEvent: %s", event.TransactionSignature)
+	log.Infof("[mapping] StrategyWithdrawEvent: %s", event.TransactionSignature)
 	var ev events.StrategyWithdrawEvent
 	if err := json.Unmarshal(event.JsonEv, &ev); err != nil {
 		return fmt.Errorf("failed to decode StrategyWithdrawEvent: %w", err)
 	}
-	// TODO: implement mapping logic
+
+	if err := strategy.Withdraw(ctx, db, ev); err != nil {
+		return fmt.Errorf("failed to withdraw strategy: %w", err)
+	}
 	return nil
 }
 
 func mapTotalInvestedUpdatedEvent(ctx context.Context, db *gorm.DB, event core.Event) error {
-	log.Infof("Mapping TotalInvestedUpdatedEvent: %s", event.TransactionSignature)
+	log.Infof("[mapping] TotalInvestedUpdatedEvent: %s", event.TransactionSignature)
 	var ev events.TotalInvestedUpdatedEvent
 	if err := json.Unmarshal(event.JsonEv, &ev); err != nil {
 		return fmt.Errorf("failed to decode TotalInvestedUpdatedEvent: %w", err)

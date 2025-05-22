@@ -23,23 +23,31 @@ var client = rpc.New(config.App.RPCEndpoint)
 func parseTokenInstructions(ctx context.Context, db *storage.Gorm, sig string, tx *rpc.GetTransactionResult) error {
 	parsedTx, err := tx.Transaction.GetTransaction()
 	if err != nil {
-		return fmt.Errorf("get transaction: %w", err)
+		return fmt.Errorf("[parser] get transaction: %w", err)
 	}
 	msg := &parsedTx.Message
 
 	if err := resolveAddressLookupsIfNeeded(ctx, msg); err != nil {
-		return fmt.Errorf("resolve lookups for tx %s: %w", sig, err)
+		return fmt.Errorf("[parser] resolve lookups for tx %s: %w", sig, err)
 	}
 
+	// Parse top-level instructions
+	for i, instr := range msg.Instructions {
+		if err := processInstruction(ctx, db, msg, sig, tx, 0, i, &instr); err != nil {
+			log.Warnf("[parser] top-level parse error: %v", err)
+		}
+	}
+
+	// Parse inner instructions
 	if tx.Meta == nil || tx.Meta.InnerInstructions == nil {
-		log.Debugf("No inner instructions for transaction %s", sig)
+		log.Debugf("[parser] No inner instructions for transaction %s", sig)
 		return nil
 	}
 
 	for _, inner := range tx.Meta.InnerInstructions {
 		for i, innerInstr := range inner.Instructions {
-			if err := processInnerInstruction(ctx, db, msg, sig, tx, inner.Index, i, &innerInstr); err != nil {
-				log.Warnf("inner parse error: %v", err)
+			if err := processInstruction(ctx, db, msg, sig, tx, inner.Index, i, &innerInstr); err != nil {
+				log.Warnf("[parser] inner parse error: %v", err)
 			}
 		}
 	}
@@ -47,9 +55,9 @@ func parseTokenInstructions(ctx context.Context, db *storage.Gorm, sig string, t
 	return nil
 }
 
-// processInnerInstruction attempts to decode and map an SPL token instruction from the given compiled instruction.
+// processInstruction attempts to decode and map an SPL token instruction from the given compiled instruction.
 // If the instruction is known, it stores a corresponding event in the database and notifies the subgraph.
-func processInnerInstruction(ctx context.Context, db *storage.Gorm, msg *solana.Message, sig string,
+func processInstruction(ctx context.Context, db *storage.Gorm, msg *solana.Message, sig string,
 	tx *rpc.GetTransactionResult, instrIndex uint16, innerIndex int, instr *solana.CompiledInstruction,
 ) error {
 	if len(instr.Data) == 0 || instr.Data[0] > token.Instruction_InitializeMint2 {
@@ -59,7 +67,7 @@ func processInnerInstruction(ctx context.Context, db *storage.Gorm, msg *solana.
 
 	programID, err := msg.Account(instr.ProgramIDIndex)
 	if err != nil {
-		log.Warnf("ProgramIDIndex out of range: %d", instr.ProgramIDIndex)
+		log.Warnf("[parser] ProgramIDIndex out of range: %d", instr.ProgramIDIndex)
 		return nil
 	}
 	if !programID.Equals(solana.TokenProgramID) {
@@ -71,13 +79,13 @@ func processInnerInstruction(ctx context.Context, db *storage.Gorm, msg *solana.
 	for _, accIdx := range instr.Accounts {
 		pubKey, err := msg.Account(accIdx)
 		if err != nil {
-			log.Errorf("Account index out of range: %d", accIdx)
+			log.Errorf("[parser] Account index out of range: %d", accIdx)
 			continue
 		}
 
 		writable, err := msg.IsWritable(pubKey)
 		if err != nil {
-			log.Errorf("Failed to check if account is writable: %v", err)
+			log.Errorf("[parser] Failed to check if account is writable: %v", err)
 			continue
 		}
 		accounts = append(accounts, &solana.AccountMeta{
@@ -89,7 +97,7 @@ func processInnerInstruction(ctx context.Context, db *storage.Gorm, msg *solana.
 
 	decoded, err := token.DecodeInstruction(accounts, instr.Data)
 	if err != nil {
-		log.Errorf("inner parse error: decode instruction: %v", err)
+		log.Errorf("[parser] inner parse error: decode instruction: %v", err)
 		return nil
 	}
 
@@ -100,7 +108,7 @@ func processInnerInstruction(ctx context.Context, db *storage.Gorm, msg *solana.
 
 	name, mapped := mapTokenInstruction(decoded.Impl)
 	if name == "" {
-		log.Debugf("Skipping unknown token instruction ID: %d", decoded.TypeID.Uint8())
+		log.Debugf("[parser] Skipping unknown token instruction ID: %d", decoded.TypeID.Uint8())
 		return nil
 	}
 
@@ -108,13 +116,13 @@ func processInnerInstruction(ctx context.Context, db *storage.Gorm, msg *solana.
 		TransactionSignature: sig,
 		Slot:                 tx.Slot,
 		BlockTime:            blockTime,
-		LogIndex:             int(instrIndex+1)*100 + innerIndex,
+		LogIndex:             1000 + int(instrIndex+1)*100 + innerIndex,
 		Name:                 name,
 	}
 	evRecord.JsonEv, _ = json.Marshal(mapped)
 
 	if err := db.SaveEvent(ctx, evRecord); err != nil {
-		return fmt.Errorf("save event %s: %w", evRecord.Name, err)
+		return fmt.Errorf("[parser] save event %s: %w", evRecord.Name, err)
 	}
 
 	subgraph.MapInstruction(ctx, db, evRecord)
@@ -132,17 +140,17 @@ func resolveAddressLookupsIfNeeded(ctx context.Context, msg *solana.Message) err
 
 			addresses, err := getOrFetchLUT(ctx, lookup.AccountKey, int(maxIndex))
 			if err != nil {
-				return fmt.Errorf("failed to fetch LUT %s: %w", lookup.AccountKey, err)
+				return fmt.Errorf("[parser] failed to fetch LUT %s: %w", lookup.AccountKey, err)
 			}
 
 			addressTables[lookup.AccountKey] = addresses
 		}
 
 		if err := msg.SetAddressTables(addressTables); err != nil {
-			return fmt.Errorf("failed to set address tables: %w", err)
+			return fmt.Errorf("[parser] failed to set address tables: %w", err)
 		}
 		if err := msg.ResolveLookups(); err != nil {
-			return fmt.Errorf("failed to resolve lookups: %w", err)
+			return fmt.Errorf("[parser] failed to resolve lookups: %w", err)
 		}
 	}
 	return nil
@@ -159,13 +167,11 @@ func mapTokenInstruction(inst interface{}) (string, any) {
 			Amount:    i.Amount,
 		}
 	case *token.TransferChecked:
-		return "TransferCheckedInstruction", events.TransferCheckedInstruction{
+		return "TransferInstruction", events.TransferInstruction{
 			From:      &i.GetSourceAccount().PublicKey,
 			To:        &i.GetDestinationAccount().PublicKey,
 			Authority: &i.GetOwnerAccount().PublicKey,
-			Mint:      &i.GetMintAccount().PublicKey,
 			Amount:    i.Amount,
-			Decimals:  i.Decimals,
 		}
 	case *token.MintTo:
 		return "MintToInstruction", events.MintToInstruction{
@@ -174,36 +180,54 @@ func mapTokenInstruction(inst interface{}) (string, any) {
 			Amount: i.Amount,
 		}
 	case *token.MintToChecked:
-		return "MintToCheckedInstruction", events.MintToCheckedInstruction{
-			To:       &i.GetDestinationAccount().PublicKey,
-			Mint:     &i.GetMintAccount().PublicKey,
-			Amount:   i.Amount,
-			Decimals: i.Decimals,
+		return "MintToInstruction", events.MintToInstruction{
+			To:     &i.GetDestinationAccount().PublicKey,
+			Mint:   &i.GetMintAccount().PublicKey,
+			Amount: i.Amount,
 		}
 	case *token.Burn:
+		log.Debugf("[parser] Burn instruction: %v", i)
 		return "BurnInstruction", events.BurnInstruction{
 			From:   &i.GetSourceAccount().PublicKey,
 			Mint:   &i.GetMintAccount().PublicKey,
 			Amount: i.Amount,
 		}
 	case *token.BurnChecked:
-		return "BurnCheckedInstruction", events.BurnCheckedInstruction{
-			From:     &i.GetSourceAccount().PublicKey,
-			Mint:     &i.GetMintAccount().PublicKey,
-			Amount:   i.Amount,
-			Decimals: i.Decimals,
+		return "BurnCheckedInstruction", events.BurnInstruction{
+			From:   &i.GetSourceAccount().PublicKey,
+			Mint:   &i.GetMintAccount().PublicKey,
+			Amount: i.Amount,
 		}
-	case *token.InitializeMint2:
-		return "InitializeMint2Instruction", events.InitializeMint2Instruction{
+	case *token.InitializeMint:
+		return "InitializeMintInstruction", events.InitializeMintInstruction{
 			Mint:            &i.GetMintAccount().PublicKey,
 			MintAuthority:   i.MintAuthority,
 			FreezeAuthority: i.FreezeAuthority,
 			Decimals:        i.Decimals,
 		}
+	case *token.InitializeMint2:
+		return "InitializeMintInstruction", events.InitializeMintInstruction{
+			Mint:            &i.GetMintAccount().PublicKey,
+			MintAuthority:   i.MintAuthority,
+			FreezeAuthority: i.FreezeAuthority,
+			Decimals:        i.Decimals,
+		}
+	case *token.InitializeAccount:
+		return "InitializeAccountInstruction", events.InitializeAccountInstruction{
+			Account: &i.GetAccount().PublicKey,
+			Mint:    &i.GetMintAccount().PublicKey,
+		}
+	case *token.InitializeAccount2:
+		return "InitializeAccountInstruction", events.InitializeAccountInstruction{
+			Account: &i.GetAccount().PublicKey,
+			Mint:    &i.GetMintAccount().PublicKey,
+			Owner:   i.Owner,
+		}
 	case *token.InitializeAccount3:
-		return "InitializeAccount3Instruction", events.InitializeAccount3Instruction{
-			Mint:  &i.GetMintAccount().PublicKey,
-			Owner: i.Owner,
+		return "InitializeAccountInstruction", events.InitializeAccountInstruction{
+			Account: &i.GetAccount().PublicKey,
+			Mint:    &i.GetMintAccount().PublicKey,
+			Owner:   i.Owner,
 		}
 	default:
 		return "", nil
@@ -222,15 +246,15 @@ func fetchAddressLookupTable(ctx context.Context, address solana.PublicKey) (sol
 		},
 	)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get LUT account info: %w", err)
+		return nil, fmt.Errorf("[parser] failed to get LUT account info: %w", err)
 	}
 	if resp == nil || resp.Value == nil || resp.Value.Data == nil {
-		return nil, fmt.Errorf("empty LUT account data")
+		return nil, fmt.Errorf("[parser] empty LUT account data")
 	}
 
 	data := resp.Value.Data.GetBinary()
 	if len(data) < 8 {
-		return nil, fmt.Errorf("invalid LUT data (too short)")
+		return nil, fmt.Errorf("[parser] invalid LUT data (too short)")
 	}
 
 	numAddresses := binary.LittleEndian.Uint32(data[4:8])

@@ -1,5 +1,11 @@
 package subgraph
 
+import (
+	"context"
+	"github.com/Tsisar/solana-indexer/storage/model/generic"
+	"gorm.io/gorm"
+)
+
 type Account struct {
 	ID string `gorm:"primaryKey;column:id"` // Account address
 
@@ -13,4 +19,19 @@ type Account struct {
 
 func (Account) TableName() string {
 	return "accounts"
+}
+
+func (a *Account) Init() {
+}
+
+func (a *Account) GetID() string {
+	return a.ID
+}
+
+func (a *Account) Load(ctx context.Context, db *gorm.DB) (bool, error) {
+	return generic.Load(ctx, db, a)
+}
+
+func (a *Account) Save(ctx context.Context, db *gorm.DB) error {
+	return generic.Save(ctx, db, a)
 }

@@ -21,7 +21,7 @@ func Retry[T any](fn func() (T, error)) (T, error) {
 		}
 		time.Sleep(time.Second)
 	}
-	return zero, fmt.Errorf("retry failed after %d attempts", attempts)
+	return zero, fmt.Errorf("[utils] retry failed after %d attempts", attempts)
 }
 
 // Ptr returns a pointer to the given value of any type.

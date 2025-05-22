@@ -6,7 +6,6 @@ import (
 	"github.com/Tsisar/solana-indexer/storage/model/core"
 	"github.com/Tsisar/solana-indexer/storage/model/subgraph"
 	"gorm.io/gorm"
-	"strconv"
 )
 
 func updateMeta(ctx context.Context, db *gorm.DB, event core.Event) error {
@@ -18,9 +17,9 @@ func updateMeta(ctx context.Context, db *gorm.DB, event core.Event) error {
 		Block: &subgraph.BlockInfo{
 			ID:         1,
 			Hash:       event.TransactionSignature,
-			Number:     strconv.FormatUint(event.Slot, 10),
+			Number:     event.Slot,
 			ParentHash: event.TransactionSignature,
-			Timestamp:  strconv.FormatInt(event.BlockTime, 10),
+			Timestamp:  event.BlockTime,
 		},
 	}
 
