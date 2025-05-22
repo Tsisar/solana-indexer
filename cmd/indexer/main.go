@@ -10,6 +10,7 @@ import (
 	"github.com/Tsisar/solana-indexer/core/parser"
 	"github.com/Tsisar/solana-indexer/storage"
 	"github.com/Tsisar/solana-indexer/subgraph"
+	"github.com/Tsisar/solana-indexer/subgraph/aggregator"
 	"time"
 )
 
@@ -21,23 +22,25 @@ func main() {
 		log.Info("Main] Resuming from last saved signature...")
 	}
 
-	db, err := storage.InitGorm()
+	gorm, err := storage.InitGorm()
 	if err != nil {
 		log.Fatalf("[Main] Failed to init Gorm DB: %v", err)
 	}
-	defer db.Close()
+	defer gorm.Close()
 
-	if err := storage.InitCoreModels(appCtx, db, resumeFromLastSignature); err != nil {
+	if err := storage.InitCoreModels(appCtx, gorm, resumeFromLastSignature); err != nil {
 		log.Fatalf("[Main] Failed to init DB: %v", err)
 	}
 
-	if err := storage.InitSubgraphModels(appCtx, db, resumeFromLastSignature); err != nil {
+	if err := storage.InitSubgraphModels(appCtx, gorm, resumeFromLastSignature); err != nil {
 		log.Fatalf("[Main] Failed to init subgraph DB: %v", err)
 	}
 
+	aggregator.Start(appCtx, gorm.DB)
+
 	go func() {
-		if err := healthchecker.Start(appCtx, db); err != nil {
-			subgraph.MapError(appCtx, db, err)
+		if err := healthchecker.Start(appCtx, gorm); err != nil {
+			subgraph.MapError(appCtx, gorm, err)
 			log.Fatalf("[Main] DB health check failed: %v", err)
 		}
 	}()
@@ -52,14 +55,14 @@ func main() {
 
 		go func() {
 			log.Debug("[Main] Starting WebSocket listener...")
-			if err := listener.Start(ctx, db, wsReady, realtimeStream, errChan); err != nil {
+			if err := listener.Start(ctx, gorm, wsReady, realtimeStream, errChan); err != nil {
 				errChan <- err
 			}
 		}()
 
 		select {
 		case err := <-errChan:
-			subgraph.MapError(appCtx, db, err)
+			subgraph.MapError(appCtx, gorm, err)
 			log.Errorf("[Main] Listener error: %v", err)
 			cancel()
 			goto waitAndRestart
@@ -70,13 +73,13 @@ func main() {
 		}
 
 		go func() {
-			if err := fetcher.Start(ctx, db, resumeFromLastSignature, fetchDone); err != nil {
+			if err := fetcher.Start(ctx, gorm, resumeFromLastSignature, fetchDone); err != nil {
 				errChan <- err
 			}
 		}()
 		select {
 		case err := <-errChan:
-			subgraph.MapError(appCtx, db, err)
+			subgraph.MapError(appCtx, gorm, err)
 			log.Errorf("[Main] Fetcher error: %v", err)
 			cancel()
 			goto waitAndRestart
@@ -87,13 +90,13 @@ func main() {
 		}
 
 		go func() {
-			if err := parser.Start(ctx, db, resumeFromLastSignature, parseDone, realtimeStream); err != nil {
+			if err := parser.Start(ctx, gorm, resumeFromLastSignature, parseDone, realtimeStream); err != nil {
 				errChan <- err
 			}
 		}()
 		select {
 		case err := <-errChan:
-			subgraph.MapError(appCtx, db, err)
+			subgraph.MapError(appCtx, gorm, err)
 			log.Errorf("[Main] Parser error: %v", err)
 			cancel()
 			goto waitAndRestart
@@ -106,7 +109,7 @@ func main() {
 
 		select {
 		case err := <-errChan:
-			subgraph.MapError(appCtx, db, err)
+			subgraph.MapError(appCtx, gorm, err)
 			log.Errorf("[Main] Runtime error: %v", err)
 			cancel()
 		case <-ctx.Done():

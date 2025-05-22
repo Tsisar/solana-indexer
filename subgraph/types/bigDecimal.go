@@ -149,3 +149,11 @@ func (b *BigDecimal) SafeDiv(other *BigDecimal) *BigDecimal {
 	}
 	return &BigDecimal{Float: new(big.Float).SetPrec(BigDecimalPrecision).Quo(b.Float, other.Float)}
 }
+
+func MustParseBigDecimal(s string) BigDecimal {
+	f, _, err := big.ParseFloat(s, 10, BigDecimalPrecision, big.ToNearestEven)
+	if err != nil {
+		panic(fmt.Errorf("invalid BigDecimal input: %s", s))
+	}
+	return BigDecimal{Float: f}
+}

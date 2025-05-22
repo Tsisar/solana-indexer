@@ -15,8 +15,8 @@ type Transaction struct {
 func NewTransaction(event core.Event) Transaction {
 	return Transaction{
 		Signature:  event.TransactionSignature,
-		Slot:       *types.BigIntFromUint64(event.Slot),
-		Timestamp:  *types.BigIntFromInt64(event.BlockTime),
-		EventIndex: *types.BigIntFromInt64(int64(event.LogIndex)),
+		Slot:       *types.NewBigIntFromUint64(event.Slot),
+		Timestamp:  *types.NewBigIntFromInt64(event.BlockTime),
+		EventIndex: *types.NewBigIntFromInt64(int64(event.LogIndex)),
 	}
 }

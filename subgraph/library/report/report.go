@@ -234,8 +234,9 @@ func CreateShareTokenData(ctx context.Context, db *gorm.DB, ev events.StrategyRe
 		return fmt.Errorf("[report] failed to load vault: %w", err)
 	}
 
+	id := utils.GenerateId(transaction.Signature, strategy.VaultID, transaction.Timestamp.String())
 	shareTokenData := subgraph.ShareTokenData{
-		ID:         vault.ShareTokenID,
+		ID:         id,
 		VaultID:    strategy.VaultID,
 		Timestamp:  transaction.Timestamp,
 		SharePrice: ev.SharePrice,

@@ -31,6 +31,14 @@ func parseTokenInstructions(ctx context.Context, db *storage.Gorm, sig string, t
 		return fmt.Errorf("[parser] resolve lookups for tx %s: %w", sig, err)
 	}
 
+	// Parse top-level instructions
+	for i, instr := range msg.Instructions {
+		if err := processInstruction(ctx, db, msg, sig, tx, 0, i, &instr); err != nil {
+			log.Warnf("[parser] top-level parse error: %v", err)
+		}
+	}
+
+	// Parse inner instructions
 	if tx.Meta == nil || tx.Meta.InnerInstructions == nil {
 		log.Debugf("[parser] No inner instructions for transaction %s", sig)
 		return nil
@@ -38,7 +46,7 @@ func parseTokenInstructions(ctx context.Context, db *storage.Gorm, sig string, t
 
 	for _, inner := range tx.Meta.InnerInstructions {
 		for i, innerInstr := range inner.Instructions {
-			if err := processInnerInstruction(ctx, db, msg, sig, tx, inner.Index, i, &innerInstr); err != nil {
+			if err := processInstruction(ctx, db, msg, sig, tx, inner.Index, i, &innerInstr); err != nil {
 				log.Warnf("[parser] inner parse error: %v", err)
 			}
 		}
@@ -47,9 +55,9 @@ func parseTokenInstructions(ctx context.Context, db *storage.Gorm, sig string, t
 	return nil
 }
 
-// processInnerInstruction attempts to decode and map an SPL token instruction from the given compiled instruction.
+// processInstruction attempts to decode and map an SPL token instruction from the given compiled instruction.
 // If the instruction is known, it stores a corresponding event in the database and notifies the subgraph.
-func processInnerInstruction(ctx context.Context, db *storage.Gorm, msg *solana.Message, sig string,
+func processInstruction(ctx context.Context, db *storage.Gorm, msg *solana.Message, sig string,
 	tx *rpc.GetTransactionResult, instrIndex uint16, innerIndex int, instr *solana.CompiledInstruction,
 ) error {
 	if len(instr.Data) == 0 || instr.Data[0] > token.Instruction_InitializeMint2 {
