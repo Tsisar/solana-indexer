@@ -17,9 +17,11 @@ import (
 )
 
 var ready atomic.Bool
+var healthy atomic.Bool
 
 func main() {
 	log.Debug("[main] Starting Solana Indexer...")
+	healthy.Store(true)
 	appCtx := context.Background()
 	resumeFromLastSignature := config.App.ResumeFromLastSignature
 	if resumeFromLastSignature {
@@ -28,10 +30,12 @@ func main() {
 
 	gorm, err := storage.InitGorm()
 	if err != nil {
+		healthy.Store(false)
 		log.Fatalf("[main] Failed to init Gorm DB: %v", err)
 	}
 	defer gorm.Close()
 
+	// readiness and liveness probe server
 	go func() {
 		http.HandleFunc("/ready", func(w http.ResponseWriter, r *http.Request) {
 			if ready.Load() {
@@ -41,29 +45,43 @@ func main() {
 				http.Error(w, "not ready", http.StatusServiceUnavailable)
 			}
 		})
-		log.Infof("[main] Readiness probe listening on :8080")
+
+		http.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
+			if healthy.Load() {
+				w.WriteHeader(http.StatusOK)
+				w.Write([]byte("alive"))
+			} else {
+				http.Error(w, "not alive", http.StatusServiceUnavailable)
+			}
+		})
+
+		log.Infof("[main] Health probe server listening on :8080")
 		if err := http.ListenAndServe(":8080", nil); err != nil {
-			log.Errorf("[main] Readiness probe server error: %v", err)
+			log.Errorf("[main] Probe server error: %v", err)
 		}
 	}()
 
 	if err := storage.InitCoreModels(appCtx, gorm, resumeFromLastSignature); err != nil {
+		healthy.Store(false)
 		log.Fatalf("[main] Failed to init DB: %v", err)
 	}
 
 	if err := storage.InitSubgraphModels(appCtx, gorm, resumeFromLastSignature); err != nil {
+		healthy.Store(false)
 		log.Fatalf("[main] Failed to init subgraph DB: %v", err)
 	}
 
 	go func() {
 		if err := healthchecker.Start(appCtx, gorm); err != nil {
 			subgraph.MapError(appCtx, gorm, err)
+			healthy.Store(false)
 			log.Fatalf("[main] DB health check failed: %v", err)
 		}
 	}()
 
 	for {
 		ctx, cancel := context.WithCancel(context.Background())
+		ready.Store(false)
 		errChan := make(chan error, 1)
 		wsReady := make(chan struct{}, 1)
 		fetchDone := make(chan struct{}, 1)
