@@ -1,0 +1,82 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}-deployment
+  labels:
+    owner: desynclabs.com
+    app.kubernetes.io/instance: {{ .Release.Namespace }}
+    app.kubernetes.io/name: {{ .Release.Name }}
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: {{ .Release.Name }}
+  template:
+    metadata:
+      labels:
+        app: {{ .Release.Name }}
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8040"
+        prometheus.io/path: "/metrics"
+    spec:
+      imagePullSecrets:
+        - name: docker-credentials
+      containers:
+        - name: {{ .Release.Name }}
+          image: {{ .Values.image.repository }}:{{ .Values.image.tag }}
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8040
+            - containerPort: 8080
+          env:
+            - name: PROGRAMS
+              value: {{ .Values.env.programs }}
+            - name: TOKENS
+              value: {{ .Values.env.tokens }}
+            - name: ENABLE_SIGNATURE_RESUME
+              value: {{ .Values.env.enable_signature_resume | quote }}
+            - name: RPC_ENDPOINT
+              value: {{ .Values.env.rpc.http }}
+            - name: RPC_WS_ENDPOINT
+              value: {{ .Values.env.rpc.ws }}
+            - name: POSTGRES_HOST
+              value: {{ .Values.env.postgres.host }}
+            - name: POSTGRES_PORT
+              value: {{ .Values.env.postgres.port | quote }}
+            - name: POSTGRES_DB
+              value: {{ .Values.env.postgres.db }}
+            - name: POSTGRES_USER
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-credentials
+                  key: user
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-credentials
+                  key: password
+            - name: LOG_LEVEL
+              value: {{ .Values.env.log.level }}
+            - name: LOG_SAVE
+              value: {{ .Values.env.log.save | quote }}
+            - name: LOG_TIMEZONE
+              value: "Asia/Dubai"
+            - name: VERSION
+              value: {{ .Values.image.tag }}
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: 8080
+            initialDelaySeconds: 60
+            periodSeconds: 60
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 20
+          resources:
+{{ toYaml .Values.resources | indent 12 }}

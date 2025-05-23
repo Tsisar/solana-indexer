@@ -1,0 +1,26 @@
+image:
+  repository: intothefathom/solana-indexer.vaults
+  tag: v0.1.1-dev
+
+env:
+  enable_signature_resume: "false"
+  programs: "G876kt2Hn3ydPQ3mgA6Zs4bSmAY4pLqiHm7FAaKw2CCU,program:FjZDG242NPVTAwJZ9ZqKAUDcxs1ZSj9ttd3WxFUFLRU2,program:AVHmy31bXVXWfv5EZ1bUYKyZ37PNxPoN2zWWDmYpHqDy,HuQK9Nma2SUuzn9CuQys3xRkCWZGFEhqYDKtK7oKsi6D,6StTNjtUDE2bcdNraW1XkQCt3n7Jo7NqXRHqzL3L7Qpy"
+  tokens: "HuQK9Nma2SUuzn9CuQys3xRkCWZGFEhqYDKtK7oKsi6D,6StTNjtUDE2bcdNraW1XkQCt3n7Jo7NqXRHqzL3L7Qpy"
+  rpc:
+    http: "https://api.devnet.solana.com"
+    ws: "wss://api.devnet.solana.com/stream"
+  postgres:
+    host: postgres-service
+    port: 5432
+    db: solana-indexer
+  log:
+    level: debug
+    save: true
+
+resources:
+  requests:
+    cpu: 200m
+    memory: 256Mi
+  limits:
+    cpu: 1000m
+    memory: 2Gi
