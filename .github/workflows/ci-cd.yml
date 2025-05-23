@@ -1,0 +1,77 @@
+name: CI/CD Pipeline
+
+on:
+  pull_request:
+    types:
+      - closed
+    branches:
+      - dev
+      - new-prod-vault
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    environment: ${{ github.ref_name == 'new-prod-vault' && 'solmate' || 'dev' }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Docker login
+        run: echo "${{ secrets.DOCKER_PASSWORD }}" | docker login -u "${{ secrets.DOCKER_USERNAME }}" --password-stdin
+
+      - name: Build Docker image
+        run: |
+          docker build \
+            --build-arg NODE_OPTIONS="--max-old-space-size=2048" \
+            --build-arg COINGECKO_API_KEY=${{ secrets.COINGECKO_API_KEY }} \
+            --build-arg NEXT_PUBLIC_MOON_PAY_KEY=${{ secrets.NEXT_PUBLIC_MOON_PAY_KEY }} \
+            --build-arg NEXT_PUBLIC_WALLET_CONNECT_PJ_ID=${{ secrets.NEXT_PUBLIC_WALLET_CONNECT_PJ_ID }} \
+            --build-arg NEXT_PUBLIC_GOOGLE_ANALYTICS_ID=${{ secrets.NEXT_PUBLIC_GOOGLE_ANALYTICS_ID }} \
+            --build-arg PROD_RPC_KEY_HELIUS=${{ secrets.PROD_RPC_KEY_HELIUS }} \
+            --build-arg PROD_RPC_KEY_DRPC=${{ secrets.PROD_RPC_KEY_DRPC }} \
+            --build-arg GRAPH_API_KEY=${{ secrets.GRAPH_API_KEY }} \
+            --build-arg NEXT_PUBLIC_ENV=${{ github.ref_name == 'new-prod-vault' && 'prod' || 'dev' }} \
+            -t ${{ vars.IMAGE_REPOSITORY }}:${{ github.sha }}-solmate .
+          docker tag ${{ vars.IMAGE_REPOSITORY }}:${{ github.sha }}-solmate ${{ vars.IMAGE_REPOSITORY }}:latest-solmate
+
+      - name: Push Docker image to Docker Hub
+        run: |
+          docker push ${{ vars.IMAGE_REPOSITORY }}:${{ github.sha }}-solmate
+          docker push ${{ vars.IMAGE_REPOSITORY }}:latest-solmate
+
+      - name: Sync Argo CD and wait for completion
+        run: |
+          MAX_RETRIES=3
+          RETRY_DELAY=10
+          RETRIES=0
+
+          until [ $RETRIES -ge $MAX_RETRIES ]
+          do
+            docker run --rm \
+              -e ARGOCD_AUTH_TOKEN=${{ secrets.ARGOCD_AUTH_TOKEN }} \
+              argoproj/argocd:v2.6.15 \
+              /bin/sh -c \
+              "argocd app set ${{ vars.ARGOCD_APP_NAME }} \
+              --server ${{ secrets.ARGOCD_API_URL }} \
+              --grpc-web \
+              --parameter image.tag=${{ github.sha }}-solmate && \
+              argocd app wait ${{ vars.ARGOCD_APP_NAME }} \
+              --server ${{ secrets.ARGOCD_API_URL }} \
+              --grpc-web \
+              --operation && \
+              argocd app sync ${{ vars.ARGOCD_APP_NAME }} \
+              --server ${{ secrets.ARGOCD_API_URL }} \
+              --grpc-web \
+              --timeout 180" && break
+
+            RETRIES=$((RETRIES+1))
+            echo "Retrying... ($RETRIES/$MAX_RETRIES)"
+            sleep $RETRY_DELAY
+          done
+
+          if [ $RETRIES -eq $MAX_RETRIES ]; then
+            echo "Failed to sync after $MAX_RETRIES attempts"
+            exit 1
+          fi
