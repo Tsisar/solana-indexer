@@ -1,85 +1,52 @@
-name: Solana Indexer CI/CD
+#!/bin/bash
 
-on:
-  pull_request:
-    types: [closed]
-    branches:
-      - dev
-      - master
-  workflow_dispatch:
+set -e
 
-jobs:
-  build-and-deploy:
-    runs-on: ubuntu-latest
-    environment: ${{ github.ref_name == 'master' && 'prod' || 'dev' }}
+# Name of the Docker image
+IMAGE_NAME="intothefathom/solana-indexer.vaults"
 
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v2
+# Get the latest Git tag
+TAG=$(git describe --tags --abbrev=0)
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+# Function to print header
+function print_header() {
+    echo "======================================"
+    echo "$1"
+    echo "======================================"
+}
 
-      - name: Extract latest Git tag
-        id: git_tag
-        run: echo "tag=$(git describe --tags --abbrev=0)" >> "$GITHUB_OUTPUT"
+# Check if docker buildx is available
+if ! docker buildx version > /dev/null 2>&1; then
+    echo "Docker buildx is not installed or available. Please install Docker buildx."
+    exit 1
+fi
 
-      - name: Docker login
-        run: echo "${{ secrets.DOCKER_PASSWORD }}" | docker login -u "${{ secrets.DOCKER_USERNAME }}" --password-stdin
+# Create and use a new buildx builder if not already exists
+if ! docker buildx inspect mybuilder >/dev/null 2>&1; then
+    print_header "Creating and using new buildx builder"
+    docker buildx create --use --name mybuilder
+else
+    print_header "Using existing buildx builder"
+    docker buildx use mybuilder
+fi
 
-      - name: Set image tag based on branch
-        id: image_tag
-        run: |
-          RAW_TAG=${{ steps.git_tag.outputs.tag }}
-          if [ "${{ github.ref_name }}" = "master" ]; then
-            echo "tag=$RAW_TAG" >> "$GITHUB_OUTPUT"
-          else
-            echo "tag=${RAW_TAG}-dev" >> "$GITHUB_OUTPUT"
-          fi
+# Inspect and bootstrap the builder
+docker buildx inspect mybuilder --bootstrap
 
-      - name: Build and push multi-platform Docker image
-        run: |
-          IMAGE="intothefathom/solana-indexer.vaults"
-          TAG="${{ steps.image_tag.outputs.tag }}"
-          docker buildx build \
-            --platform linux/amd64,linux/arm64 \
-            -t $IMAGE:$TAG \
-            -t $IMAGE:latest \
-            --push .
+# Build and push the image for multiple platforms
+print_header "Building and pushing Docker image ${IMAGE_NAME}:${TAG}-dev"
+docker buildx build --platform linux/amd64,linux/arm64 -t ${IMAGE_NAME}:${TAG}-dev --push .
 
-      - name: Sync Argo CD and wait for completion
-        run: |
-          APP_NAME="solana-indexer"
-          IMAGE_TAG="${{ steps.image_tag.outputs.tag }}"
-          MAX_RETRIES=3
-          RETRY_DELAY=10
-          RETRIES=0
+# Clean up builder
+print_header "Cleaning up buildx builder"
+docker buildx rm mybuilder
 
-          until [ $RETRIES -ge $MAX_RETRIES ]
-          do
-            docker run --rm \
-              -e ARGOCD_AUTH_TOKEN=${{ secrets.ARGOCD_AUTH_TOKEN }} \
-              argoproj/argocd:v2.6.15 \
-              /bin/sh -c \
-              "argocd app set $APP_NAME \
-              --server ${{ secrets.ARGOCD_API_URL }} \
-              --grpc-web \
-              --parameter image.tag=$IMAGE_TAG && \
-              argocd app wait $APP_NAME \
-              --server ${{ secrets.ARGOCD_API_URL }} \
-              --grpc-web \
-              --operation && \
-              argocd app sync $APP_NAME \
-              --server ${{ secrets.ARGOCD_API_URL }} \
-              --grpc-web \
-              --timeout 180" && break
+# Remove local container with the same name, if exists
+CONTAINER_ID=$(docker ps -aqf "name=$(basename $IMAGE_NAME)")
 
-            RETRIES=$((RETRIES+1))
-            echo "Retrying... ($RETRIES/$MAX_RETRIES)"
-            sleep $RETRY_DELAY
-          done
+if [ -n "$CONTAINER_ID" ]; then
+    print_header "Removing existing local container $(basename $IMAGE_NAME)"
+    docker rm -f ${CONTAINER_ID}
+fi
 
-          if [ $RETRIES -eq $MAX_RETRIES ]; then
-            echo "Failed to sync after $MAX_RETRIES attempts"
-            exit 1
-          fi
+print_header "Docker image ${IMAGE_NAME}:${TAG}-dev has been built and pushed successfully"
