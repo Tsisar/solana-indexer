@@ -11,26 +11,26 @@ import (
 	"time"
 )
 
-func Start(ctx context.Context, db *gorm.DB) {
+func Start(ctx context.Context, db *gorm.DB) error {
 	ticker := time.NewTicker(1 * time.Hour)
 
 	if err := aggregateAndSaveSharePrice(ctx, db, "hour"); err != nil {
-		log.Errorf("Aggregation error: %v", err)
+		return fmt.Errorf("[aggregator] aggregation error: %v", err)
 	}
 	if err := aggregateAndSaveSharePrice(ctx, db, "day"); err != nil {
-		log.Errorf("Aggregation error: %v", err)
+		return fmt.Errorf("[aggregator] aggregation error: %v", err)
 	}
 
 	go func() {
 		for {
 			select {
 			case <-ticker.C:
-				log.Debug("Running hourly aggregation...")
+				log.Debug("[aggregator] Running hourly aggregation...")
 				if err := aggregateAndSaveSharePrice(ctx, db, "hour"); err != nil {
-					log.Errorf("Aggregation error: %v", err)
+					log.Errorf("[aggregator] aggregation error: %v", err)
 				}
 				if err := aggregateAndSaveSharePrice(ctx, db, "day"); err != nil {
-					log.Errorf("Aggregation error: %v", err)
+					log.Errorf("[aggregator] aggregation error: %v", err)
 				}
 			case <-ctx.Done():
 				ticker.Stop()
@@ -38,11 +38,13 @@ func Start(ctx context.Context, db *gorm.DB) {
 			}
 		}
 	}()
+
+	return nil
 }
 
 func aggregateAndSaveSharePrice(ctx context.Context, db *gorm.DB, interval string) error {
 	if interval != "hour" && interval != "day" {
-		return fmt.Errorf("unsupported interval: %s", interval)
+		return fmt.Errorf("[aggregator] unsupported interval: %s", interval)
 	}
 
 	type rawRow struct {
@@ -74,7 +76,7 @@ func aggregateAndSaveSharePrice(ctx context.Context, db *gorm.DB, interval strin
 	`, interval, interval)
 
 	if err := db.Raw(query).Scan(&rows).Error; err != nil {
-		return fmt.Errorf("%s aggregation query failed: %w", interval, err)
+		return fmt.Errorf("[aggregator] %s aggregation query failed: %w", interval, err)
 	}
 
 	for _, r := range rows {
@@ -90,7 +92,7 @@ func aggregateAndSaveSharePrice(ctx context.Context, db *gorm.DB, interval strin
 			Interval:   interval,
 		}
 		if err := stat.Save(ctx, db); err != nil {
-			return fmt.Errorf("failed to save %s token stats: %w", interval, err)
+			return fmt.Errorf("[aggregator] failed to save %s token stats: %w", interval, err)
 		}
 	}
 

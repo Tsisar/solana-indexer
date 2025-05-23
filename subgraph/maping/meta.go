@@ -3,23 +3,23 @@ package maping
 import (
 	"context"
 	"fmt"
-	"github.com/Tsisar/solana-indexer/storage/model/core"
+	"github.com/Tsisar/solana-indexer/core/config"
 	"github.com/Tsisar/solana-indexer/storage/model/subgraph"
 	"gorm.io/gorm"
 )
 
-func updateMeta(ctx context.Context, db *gorm.DB, event core.Event) error {
+func updateMeta(ctx context.Context, db *gorm.DB, signature string, slot uint64, blockTime int64) error {
 	meta := subgraph.Meta{
 		ID:                1,
-		Deployment:        "solana-indexer",
+		Deployment:        fmt.Sprintf("solana-indexer %s", config.App.Version),
 		HasIndexingErrors: false,
 		BlockID:           1,
 		Block: &subgraph.BlockInfo{
 			ID:         1,
-			Hash:       event.TransactionSignature,
-			Number:     event.Slot,
-			ParentHash: event.TransactionSignature,
-			Timestamp:  event.BlockTime,
+			Hash:       signature,
+			Number:     slot,
+			ParentHash: signature,
+			Timestamp:  blockTime,
 		},
 	}
 

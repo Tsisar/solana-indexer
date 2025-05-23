@@ -5,7 +5,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/Tsisar/extended-log-go/log"
+	"github.com/Tsisar/solana-indexer/core/utils"
 	"github.com/Tsisar/solana-indexer/storage"
+	"github.com/Tsisar/solana-indexer/subgraph"
 	"github.com/gagliardetto/solana-go/rpc"
 )
 
@@ -98,6 +100,8 @@ func parseTransaction(ctx context.Context, db *storage.Gorm, rawTx []byte, sig s
 	if err := parseLogs(ctx, db, sig, &tx); err != nil {
 		return fmt.Errorf("[parser] error parsing logs in %s: %w", sig, err)
 	}
+
+	subgraph.MapMetadata(ctx, db, sig, tx.Slot, utils.BlockTime(tx.BlockTime))
 
 	return nil
 }
