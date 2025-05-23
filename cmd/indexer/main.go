@@ -10,7 +10,6 @@ import (
 	"github.com/Tsisar/solana-indexer/core/parser"
 	"github.com/Tsisar/solana-indexer/storage"
 	"github.com/Tsisar/solana-indexer/subgraph"
-	"github.com/Tsisar/solana-indexer/subgraph/aggregator"
 	"net/http"
 	"sync/atomic"
 	"time"
@@ -138,7 +137,7 @@ func main() {
 		case <-parseDone:
 			log.Info("[main] Historical parsing complete, run aggregator, entering streaming mode")
 			ready.Store(true)
-			aggregator.Start(appCtx, gorm.DB)
+			subgraph.RunAggregator(appCtx, gorm)
 			resumeFromLastSignature = true
 		case <-ctx.Done():
 			goto waitAndRestart

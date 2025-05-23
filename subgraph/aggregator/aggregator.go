@@ -11,14 +11,14 @@ import (
 	"time"
 )
 
-func Start(ctx context.Context, db *gorm.DB) {
+func Start(ctx context.Context, db *gorm.DB) error {
 	ticker := time.NewTicker(1 * time.Hour)
 
 	if err := aggregateAndSaveSharePrice(ctx, db, "hour"); err != nil {
-		log.Errorf("[aggregator] aggregation error: %v", err)
+		return fmt.Errorf("[aggregator] aggregation error: %v", err)
 	}
 	if err := aggregateAndSaveSharePrice(ctx, db, "day"); err != nil {
-		log.Errorf("[aggregator] aggregation error: %v", err)
+		return fmt.Errorf("[aggregator] aggregation error: %v", err)
 	}
 
 	go func() {
@@ -38,6 +38,8 @@ func Start(ctx context.Context, db *gorm.DB) {
 			}
 		}
 	}()
+
+	return nil
 }
 
 func aggregateAndSaveSharePrice(ctx context.Context, db *gorm.DB, interval string) error {

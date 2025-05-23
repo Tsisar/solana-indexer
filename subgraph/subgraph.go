@@ -5,6 +5,7 @@ import (
 	"github.com/Tsisar/extended-log-go/log"
 	"github.com/Tsisar/solana-indexer/storage"
 	"github.com/Tsisar/solana-indexer/storage/model/core"
+	"github.com/Tsisar/solana-indexer/subgraph/aggregator"
 	"github.com/Tsisar/solana-indexer/subgraph/maping"
 )
 
@@ -23,6 +24,25 @@ func MapInstruction(ctx context.Context, db *storage.Gorm, event core.Event) {
 			log.Errorf("Failed to map error: %v", err)
 		}
 		log.Fatalf("Failed to map instruction: %v", err)
+	}
+}
+
+func MapMetadata(ctx context.Context, db *storage.Gorm, signature string, slot uint64, blockTime int64) {
+	if err := maping.Metadata(ctx, db.DB, signature, slot, blockTime); err != nil {
+		if err := maping.Error(ctx, db.DB, err); err != nil {
+			log.Errorf("Failed to map error: %v", err)
+		}
+		log.Fatalf("Failed to map metadata: %v", err)
+	}
+
+}
+
+func RunAggregator(ctx context.Context, db *storage.Gorm) {
+	if err := aggregator.Start(ctx, db.DB); err != nil {
+		if err := maping.Error(ctx, db.DB, err); err != nil {
+			log.Errorf("Failed to map error: %v", err)
+		}
+		log.Errorf("Failed to run aggregator: %v", err)
 	}
 }
 

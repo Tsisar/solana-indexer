@@ -20,10 +20,6 @@ Signature: %s
 ────────────────────────────────────────────────────────────────────`,
 		event.Name, event.LogIndex, string(pretty), event.Slot, event.TransactionSignature)
 
-	if err := updateMeta(ctx, db, event); err != nil {
-		return fmt.Errorf("failed to update meta: %w", err)
-	}
-
 	if err := mapEvents(ctx, db, event); err != nil {
 		return fmt.Errorf("failed to map events: %w", err)
 	}
@@ -41,12 +37,15 @@ Signature: %s
 ────────────────────────────────────────────────────────────────────
 `, event.Name, event.LogIndex, string(pretty), event.Slot, event.TransactionSignature)
 
-	if err := updateMeta(ctx, db, event); err != nil {
-		return fmt.Errorf("failed to update meta: %w", err)
-	}
-
 	if err := mapEvents(ctx, db, event); err != nil {
 		return fmt.Errorf("failed to map events: %w", err)
+	}
+	return nil
+}
+
+func Metadata(ctx context.Context, db *gorm.DB, signature string, slot uint64, blockTime int64) error {
+	if err := updateMeta(ctx, db, signature, slot, blockTime); err != nil {
+		return fmt.Errorf("failed to update meta: %w", err)
 	}
 	return nil
 }

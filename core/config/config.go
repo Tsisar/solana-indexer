@@ -12,6 +12,7 @@ type config struct {
 	ResumeFromLastSignature bool
 	RPCEndpoint             string
 	RPCWSEndpoint           string
+	Version                 string
 	Programs                []string
 	Tokens                  []string
 	Postgres                postgres
@@ -50,6 +51,7 @@ func loadConfig() (*config, error) {
 		ResumeFromLastSignature: getBool("RESUME_FROM_LAST_SIGNATURE", false),
 		RPCEndpoint:             getString("RPC_ENDPOINT", "https://api.mainnet-beta.solana.com"),
 		RPCWSEndpoint:           getString("RPC_WS_ENDPOINT", "wss://api.mainnet-beta.solana.com"),
+		Version:                 getString("VERSION", "v.unknown"),
 		Programs:                getStringSlice("PROGRAMS", []string{}),
 		Tokens:                  getStringSlice("TOKENS", []string{}),
 		Postgres: postgres{
