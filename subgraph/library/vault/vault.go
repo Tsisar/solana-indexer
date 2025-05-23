@@ -416,6 +416,7 @@ func WithdrawalRequested(ctx context.Context, db *gorm.DB, ev events.WithdrawalR
 	withdrawalRequest.Amount = ev.Amount
 	withdrawalRequest.MaxLoss = ev.MaxLoss
 	withdrawalRequest.FeeShares = ev.FeeShares
+	withdrawalRequest.Index = ev.Index
 	withdrawalRequest.Open = true
 	withdrawalRequest.Status = "open"
 	withdrawalRequest.Timestamp = ev.Timestamp
