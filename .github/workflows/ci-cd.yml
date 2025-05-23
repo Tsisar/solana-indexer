@@ -20,9 +20,11 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Extract latest Git tag
+      - name: Extract latest Git tag or fallback to short SHA
         id: git_tag
-        run: echo "tag=$(git describe --tags --abbrev=0)" >> "$GITHUB_OUTPUT"
+        run: |
+          TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "untagged")
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
 
       - name: Docker login
         run: echo "${{ secrets.DOCKER_PASSWORD }}" | docker login -u "${{ secrets.DOCKER_USERNAME }}" --password-stdin
@@ -30,7 +32,11 @@ jobs:
       - name: Set image tag based on branch
         id: image_tag
         run: |
-          RAW_TAG=${{ steps.git_tag.outputs.tag }}
+          RAW_TAG="${{ steps.git_tag.outputs.tag }}"
+          if [ "$RAW_TAG" = "untagged" ]; then
+            RAW_TAG=${GITHUB_SHA::7}
+          fi
+
           if [ "${{ github.ref_name }}" = "master" ]; then
             echo "tag=$RAW_TAG" >> "$GITHUB_OUTPUT"
           else
