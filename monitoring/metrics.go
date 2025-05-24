@@ -25,6 +25,22 @@ var (
 			Help: "Current slot being parsed by the parser/indexer",
 		},
 	)
+
+	DepositsTotal = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "indexer_deposit_total",
+			Help: "Number of processed deposits",
+		},
+		[]string{"vault_id", "token_id"},
+	)
+
+	WithdrawalsTotal = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "indexer_withdrawal_total",
+			Help: "Number of processed withdrawals",
+		},
+		[]string{"vault_id", "token_id"},
+	)
 )
 
 func init() {
@@ -32,5 +48,7 @@ func init() {
 		FetcherCurrentSlot,
 		ParserCurrentSlot,
 		ListenerCurrentSlot,
+		DepositsTotal,
+		WithdrawalsTotal,
 	)
 }

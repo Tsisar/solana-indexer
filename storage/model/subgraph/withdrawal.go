@@ -2,6 +2,7 @@ package subgraph
 
 import (
 	"context"
+	"github.com/Tsisar/solana-indexer/monitoring"
 	"github.com/Tsisar/solana-indexer/storage/model/generic"
 	"github.com/Tsisar/solana-indexer/subgraph/types"
 	"gorm.io/gorm"
@@ -59,5 +60,6 @@ func (w *Withdrawal) Load(ctx context.Context, db *gorm.DB) (bool, error) {
 }
 
 func (w *Withdrawal) Save(ctx context.Context, db *gorm.DB) error {
+	monitoring.WithdrawalsTotal.WithLabelValues(w.VaultID, w.TokenID).Inc()
 	return generic.Save(ctx, db, w)
 }
