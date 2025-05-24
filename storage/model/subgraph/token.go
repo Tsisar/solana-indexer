@@ -2,6 +2,7 @@ package subgraph
 
 import (
 	"context"
+	"github.com/Tsisar/solana-indexer/monitoring"
 	"github.com/Tsisar/solana-indexer/storage/model/generic"
 	"github.com/Tsisar/solana-indexer/subgraph/types"
 	"gorm.io/gorm"
@@ -35,5 +36,10 @@ func (t *Token) Load(ctx context.Context, db *gorm.DB) (bool, error) {
 }
 
 func (t *Token) Save(ctx context.Context, db *gorm.DB) error {
+	priceFloat, _ := t.CurrentPrice.Float64()
+	decimals, _ := t.Decimals.Float64()
+	
+	monitoring.TokenPrice.WithLabelValues(t.ID, t.Symbol, t.Name).Set(priceFloat)
+	monitoring.TokenDecimals.WithLabelValues(t.ID).Set(decimals)
 	return generic.Save(ctx, db, t)
 }

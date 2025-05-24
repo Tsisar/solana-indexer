@@ -57,6 +57,22 @@ var (
 		},
 		[]string{"vault_id", "token_id"},
 	)
+
+	TokenPrice = prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Name: "indexer_token_price",
+			Help: "Current token price",
+		},
+		[]string{"token_id", "symbol", "name"},
+	)
+
+	TokenDecimals = prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Name: "indexer_token_decimals",
+			Help: "Token decimals",
+		},
+		[]string{"token_id"},
+	)
 )
 
 func init() {
@@ -68,5 +84,7 @@ func init() {
 		WithdrawalsTotal,
 		DepositTokenSum,
 		WithdrawalTokenSum,
+		TokenPrice,
+		TokenDecimals,
 	)
 }
