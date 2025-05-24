@@ -62,7 +62,7 @@ func loadConfig() (*config, error) {
 			Port:     getString("POSTGRES_PORT", "5432"),
 		},
 		Metrics: metrics{
-			Enabled: getBool("METRICS_ENABLED", false),
+			Enabled: getBool("METRICS_ENABLED", true),
 			Port:    getString("METRICS_PORT", "9040"),
 		},
 	}, nil

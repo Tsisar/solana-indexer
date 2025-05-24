@@ -10,6 +10,7 @@ import (
 	"github.com/Tsisar/solana-indexer/core/parser"
 	"github.com/Tsisar/solana-indexer/storage"
 	"github.com/Tsisar/solana-indexer/subgraph"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"net/http"
 	"sync/atomic"
 	"time"
@@ -59,6 +60,17 @@ func main() {
 			log.Errorf("[main] Probe server error: %v", err)
 		}
 	}()
+
+	if config.App.Metrics.Enabled {
+		go func() {
+			addr := ":" + config.App.Metrics.Port
+			http.Handle("/metrics", promhttp.Handler())
+			log.Infof("[main] Metrics available on %s/metrics", addr)
+			if err := http.ListenAndServe(addr, nil); err != nil {
+				log.Errorf("[main] Prometheus server error: %v", err)
+			}
+		}()
+	}
 
 	if err := storage.InitCoreModels(appCtx, gorm, resumeFromLastSignature); err != nil {
 		healthy.Store(false)
