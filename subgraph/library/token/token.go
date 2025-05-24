@@ -3,6 +3,7 @@ package token
 import (
 	"context"
 	"fmt"
+	"github.com/Tsisar/solana-indexer/monitoring"
 	"github.com/Tsisar/solana-indexer/subgraph/events"
 
 	"github.com/Tsisar/solana-indexer/storage/model/subgraph"
@@ -25,6 +26,7 @@ func UpsertUnderlyingToken(ctx context.Context, db *gorm.DB, event events.VaultI
 	if err := token.Save(ctx, db); err != nil {
 		return nil, fmt.Errorf("[UpsertUnderlyingToken] failed to save token: %w", err)
 	}
+	monitoring.Token(token)
 
 	return &token, nil
 }
@@ -44,6 +46,7 @@ func UpsertShareToken(ctx context.Context, db *gorm.DB, event events.VaultInitEv
 	if err := token.Save(ctx, db); err != nil {
 		return nil, fmt.Errorf("[UpsertUnderlyingToken] failed to save token: %w", err)
 	}
+	monitoring.Token(token)
 
 	return &token, nil
 }

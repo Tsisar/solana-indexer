@@ -1,34 +1,33 @@
 {
-  "annotations": {
-    "list": [
-      {
-        "builtIn": 1,
-        "datasource": {
-          "type": "grafana",
-          "uid": "-- Grafana --"
-        },
-        "enable": true,
-        "hide": true,
-        "iconColor": "rgba(0, 211, 255, 1)",
-        "name": "Annotations & Alerts",
-        "type": "dashboard"
-      }
-    ]
-  },
-  "editable": true,
-  "fiscalYearStartMonth": 0,
-  "graphTooltip": 0,
-  "id": 35,
-  "links": [],
+  "uid": "solana-indexer-dashboard",
+  "title": "Solana Indexer",
+  "tags": [
+    "solana",
+    "indexer",
+    "monitoring"
+  ],
+  "timezone": "browser",
+  "schemaVersion": 40,
+  "version": 2,
+  "refresh": "5s",
   "panels": [
     {
+      "type": "stat",
+      "title": "Fetcher Current Slot",
+      "id": 1,
       "datasource": "Prometheus",
+      "targets": [
+        {
+          "expr": "sum(indexer_fetcher_current_slot)",
+          "refId": "A"
+        }
+      ],
       "fieldConfig": {
         "defaults": {
+          "unit": "none",
           "color": {
             "mode": "thresholds"
           },
-          "mappings": [],
           "thresholds": {
             "mode": "absolute",
             "steps": [
@@ -37,8 +36,7 @@
                 "value": null
               }
             ]
-          },
-          "unit": "none"
+          }
         },
         "overrides": []
       },
@@ -48,13 +46,11 @@
         "x": 0,
         "y": 0
       },
-      "id": 1,
       "options": {
         "colorMode": "value",
         "graphMode": "area",
         "justifyMode": "auto",
         "orientation": "auto",
-        "percentChangeColorMode": "standard",
         "reduceOptions": {
           "calcs": [
             "lastNotNull"
@@ -62,30 +58,26 @@
           "fields": "",
           "values": false
         },
-        "showPercentChange": false,
-        "textMode": "auto",
-        "wideLayout": true
-      },
-      "pluginVersion": "11.5.1",
-      "targets": [
-        {
-          "editorMode": "code",
-          "expr": "sum(indexer_fetcher_current_slot)",
-          "range": true,
-          "refId": "A"
-        }
-      ],
-      "title": "Fetcher Current Slot",
-      "type": "stat"
+        "textMode": "auto"
+      }
     },
     {
+      "type": "stat",
+      "title": "Parser Current Slot",
+      "id": 2,
       "datasource": "Prometheus",
+      "targets": [
+        {
+          "expr": "sum(indexer_parser_current_slot)",
+          "refId": "B"
+        }
+      ],
       "fieldConfig": {
         "defaults": {
+          "unit": "none",
           "color": {
             "mode": "thresholds"
           },
-          "mappings": [],
           "thresholds": {
             "mode": "absolute",
             "steps": [
@@ -94,8 +86,7 @@
                 "value": null
               }
             ]
-          },
-          "unit": "none"
+          }
         },
         "overrides": []
       },
@@ -105,13 +96,11 @@
         "x": 8,
         "y": 0
       },
-      "id": 2,
       "options": {
         "colorMode": "value",
         "graphMode": "area",
         "justifyMode": "auto",
         "orientation": "auto",
-        "percentChangeColorMode": "standard",
         "reduceOptions": {
           "calcs": [
             "lastNotNull"
@@ -119,30 +108,26 @@
           "fields": "",
           "values": false
         },
-        "showPercentChange": false,
-        "textMode": "auto",
-        "wideLayout": true
-      },
-      "pluginVersion": "11.5.1",
-      "targets": [
-        {
-          "editorMode": "code",
-          "expr": "sum(indexer_parser_current_slot)",
-          "range": true,
-          "refId": "B"
-        }
-      ],
-      "title": "Parser Current Slot",
-      "type": "stat"
+        "textMode": "auto"
+      }
     },
     {
+      "type": "stat",
+      "title": "Listener Current Slot",
+      "id": 3,
       "datasource": "Prometheus",
+      "targets": [
+        {
+          "expr": "sum(indexer_listener_current_slot)",
+          "refId": "C"
+        }
+      ],
       "fieldConfig": {
         "defaults": {
+          "unit": "none",
           "color": {
             "mode": "thresholds"
           },
-          "mappings": [],
           "thresholds": {
             "mode": "absolute",
             "steps": [
@@ -151,8 +136,7 @@
                 "value": null
               }
             ]
-          },
-          "unit": "none"
+          }
         },
         "overrides": []
       },
@@ -162,13 +146,11 @@
         "x": 16,
         "y": 0
       },
-      "id": 4,
       "options": {
         "colorMode": "value",
         "graphMode": "area",
         "justifyMode": "auto",
         "orientation": "auto",
-        "percentChangeColorMode": "standard",
         "reduceOptions": {
           "calcs": [
             "lastNotNull"
@@ -176,81 +158,37 @@
           "fields": "",
           "values": false
         },
-        "showPercentChange": false,
-        "textMode": "auto",
-        "wideLayout": true
-      },
-      "pluginVersion": "11.5.1",
-      "targets": [
-        {
-          "editorMode": "code",
-          "expr": "sum(indexer_listener_current_slot)",
-          "range": true,
-          "refId": "D"
-        }
-      ],
-      "title": "Listener Current Slot",
-      "type": "stat"
+        "textMode": "auto"
+      }
     },
     {
+      "type": "timeseries",
+      "title": "Slot Progress (Fetcher / Parser / Listener)",
+      "id": 4,
       "datasource": "Prometheus",
+      "targets": [
+        {
+          "expr": "indexer_fetcher_current_slot",
+          "legendFormat": "Fetcher",
+          "refId": "A"
+        },
+        {
+          "expr": "indexer_parser_current_slot",
+          "legendFormat": "Parser",
+          "refId": "B"
+        },
+        {
+          "expr": "indexer_listener_current_slot",
+          "legendFormat": "Listener",
+          "refId": "C"
+        }
+      ],
       "fieldConfig": {
         "defaults": {
+          "unit": "none",
           "color": {
             "mode": "palette-classic"
-          },
-          "custom": {
-            "axisBorderShow": false,
-            "axisCenteredZero": false,
-            "axisColorMode": "text",
-            "axisLabel": "",
-            "axisPlacement": "auto",
-            "barAlignment": 0,
-            "barWidthFactor": 0.6,
-            "drawStyle": "line",
-            "fillOpacity": 0,
-            "gradientMode": "none",
-            "hideFrom": {
-              "legend": false,
-              "tooltip": false,
-              "viz": false
-            },
-            "insertNulls": false,
-            "lineInterpolation": "linear",
-            "lineWidth": 1,
-            "pointSize": 5,
-            "scaleDistribution": {
-              "type": "linear"
-            },
-            "showPoints": "auto",
-            "spanNulls": false,
-            "stacking": {
-              "group": "A",
-              "mode": "none"
-            },
-            "thresholdsStyle": {
-              "mode": "off"
-            }
-          },
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              },
-              {
-                "color": "orange",
-                "value": 1000
-              },
-              {
-                "color": "red",
-                "value": 5000
-              }
-            ]
-          },
-          "unit": "none"
+          }
         },
         "overrides": []
       },
@@ -260,78 +198,128 @@
         "x": 0,
         "y": 4
       },
-      "id": 3,
       "options": {
         "legend": {
-          "calcs": [],
+          "showLegend": true,
           "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": true
+          "placement": "bottom"
         },
         "tooltip": {
-          "hideZeros": false,
-          "mode": "single",
-          "sort": "none"
+          "mode": "single"
         }
-      },
-      "pluginVersion": "11.5.1",
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Deposits per Vault",
+      "id": 5,
+      "datasource": "Prometheus",
       "targets": [
         {
-          "editorMode": "code",
-          "expr": "sum(indexer_fetcher_current_slot)",
-          "range": true,
-          "refId": "C"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "editorMode": "code",
-          "expr": "sum(indexer_listener_current_slot)",
-          "hide": false,
-          "instant": false,
-          "legendFormat": "",
-          "range": true,
-          "refId": "A"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "editorMode": "code",
-          "expr": "sum(indexer_parser_current_slot)",
-          "hide": false,
-          "instant": false,
-          "legendFormat": "",
-          "range": true,
-          "refId": "B"
+          "expr": "sum by (vault_id) (indexer_deposit_total)",
+          "legendFormat": "{{vault_id}}",
+          "refId": "D"
         }
       ],
-      "title": "Fetcher vs Parser Slot Gap",
-      "type": "timeseries"
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "color": {
+            "mode": "palette-classic"
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 14
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Withdrawals per Vault",
+      "id": 6,
+      "datasource": "Prometheus",
+      "targets": [
+        {
+          "expr": "sum by (vault_id) (indexer_withdrawal_total)",
+          "legendFormat": "{{vault_id}}",
+          "refId": "E"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "color": {
+            "mode": "palette-classic"
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 14
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Total Deposited Tokens by Vault",
+      "id": 7,
+      "datasource": "Prometheus",
+      "targets": [
+        {
+          "expr": "sum by (vault_id) (indexer_deposit_token_sum)",
+          "legendFormat": "{{vault_id}}",
+          "refId": "F"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "color": {
+            "mode": "palette-classic"
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 23
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Total Withdrawn Tokens by Vault",
+      "id": 8,
+      "datasource": "Prometheus",
+      "targets": [
+        {
+          "expr": "sum by (vault_id) (indexer_withdrawal_token_sum)",
+          "legendFormat": "{{vault_id}}",
+          "refId": "G"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "color": {
+            "mode": "palette-classic"
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 23
+      }
     }
-  ],
-  "preload": false,
-  "refresh": "5s",
-  "schemaVersion": 40,
-  "tags": [
-    "solana",
-    "indexer",
-    "monitoring"
-  ],
-  "templating": {
-    "list": []
-  },
-  "time": {
-    "from": "now-15m",
-    "to": "now"
-  },
-  "timepicker": {},
-  "timezone": "browser",
-  "title": "Solana Indexer",
-  "uid": "solana-indexer-dashboard",
-  "version": 1,
-  "weekStart": ""
+  ]
 }
