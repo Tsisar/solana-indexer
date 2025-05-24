@@ -63,7 +63,7 @@ func loadConfig() (*config, error) {
 		},
 		Metrics: metrics{
 			Enabled: getBool("METRICS_ENABLED", true),
-			Port:    getString("METRICS_PORT", "9040"),
+			Port:    getString("METRICS_PORT", "8040"),
 		},
 	}, nil
 }
