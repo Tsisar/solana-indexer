@@ -18,7 +18,7 @@
   "editable": true,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 0,
-  "id": 35,
+  "id": 38,
   "links": [],
   "panels": [
     {
@@ -69,9 +69,7 @@
       "pluginVersion": "11.5.1",
       "targets": [
         {
-          "editorMode": "code",
           "expr": "sum(indexer_fetcher_current_slot)",
-          "range": true,
           "refId": "A"
         }
       ],
@@ -126,9 +124,7 @@
       "pluginVersion": "11.5.1",
       "targets": [
         {
-          "editorMode": "code",
           "expr": "sum(indexer_parser_current_slot)",
-          "range": true,
           "refId": "B"
         }
       ],
@@ -162,7 +158,7 @@
         "x": 16,
         "y": 0
       },
-      "id": 4,
+      "id": 3,
       "options": {
         "colorMode": "value",
         "graphMode": "area",
@@ -183,10 +179,8 @@
       "pluginVersion": "11.5.1",
       "targets": [
         {
-          "editorMode": "code",
           "expr": "sum(indexer_listener_current_slot)",
-          "range": true,
-          "refId": "D"
+          "refId": "C"
         }
       ],
       "title": "Listener Current Slot",
@@ -241,12 +235,8 @@
                 "value": null
               },
               {
-                "color": "orange",
-                "value": 1000
-              },
-              {
                 "color": "red",
-                "value": 5000
+                "value": 80
               }
             ]
           },
@@ -260,7 +250,7 @@
         "x": 0,
         "y": 4
       },
-      "id": 3,
+      "id": 4,
       "options": {
         "legend": {
           "calcs": [],
@@ -279,37 +269,204 @@
         {
           "editorMode": "code",
           "expr": "sum(indexer_fetcher_current_slot)",
-          "range": true,
-          "refId": "C"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "editorMode": "code",
-          "expr": "sum(indexer_listener_current_slot)",
-          "hide": false,
-          "instant": false,
-          "legendFormat": "",
+          "legendFormat": "Fetcher",
           "range": true,
           "refId": "A"
         },
         {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
           "editorMode": "code",
           "expr": "sum(indexer_parser_current_slot)",
-          "hide": false,
-          "instant": false,
-          "legendFormat": "",
+          "legendFormat": "Parser",
           "range": true,
           "refId": "B"
+        },
+        {
+          "editorMode": "code",
+          "expr": "sum(indexer_listener_current_slot)",
+          "legendFormat": "Listener",
+          "range": true,
+          "refId": "C"
         }
       ],
-      "title": "Fetcher vs Parser Slot Gap",
+      "title": "Slot Progress (Fetcher / Parser / Listener)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": "Prometheus",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "barWidthFactor": 0.6,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 14
+      },
+      "id": 5,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "hideZeros": false,
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "11.5.1",
+      "targets": [
+        {
+          "expr": "sum by (vault_id) (indexer_deposit_total)",
+          "legendFormat": "{{vault_id}}",
+          "refId": "D"
+        }
+      ],
+      "title": "Deposits per Vault",
+      "type": "timeseries"
+    },
+    {
+      "datasource": "Prometheus",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "barWidthFactor": 0.6,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 14
+      },
+      "id": 6,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "hideZeros": false,
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "11.5.1",
+      "targets": [
+        {
+          "expr": "sum by (vault_id) (indexer_withdrawal_total)",
+          "legendFormat": "{{vault_id}}",
+          "refId": "E"
+        }
+      ],
+      "title": "Withdrawals per Vault",
       "type": "timeseries"
     }
   ],
@@ -325,13 +482,13 @@
     "list": []
   },
   "time": {
-    "from": "now-15m",
+    "from": "now-6h",
     "to": "now"
   },
   "timepicker": {},
   "timezone": "browser",
   "title": "Solana Indexer",
   "uid": "solana-indexer-dashboard",
-  "version": 1,
+  "version": 4,
   "weekStart": ""
 }
