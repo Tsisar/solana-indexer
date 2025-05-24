@@ -41,6 +41,22 @@ var (
 		},
 		[]string{"vault_id", "token_id"},
 	)
+
+	DepositTokenSum = prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Name: "indexer_deposit_token_sum",
+			Help: "Total token amount deposited to each vault",
+		},
+		[]string{"vault_id", "token_id"},
+	)
+
+	WithdrawalTokenSum = prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Name: "indexer_withdrawal_token_sum",
+			Help: "Total token amount withdrawn from each vault",
+		},
+		[]string{"vault_id", "token_id"},
+	)
 )
 
 func init() {
@@ -50,5 +66,7 @@ func init() {
 		ListenerCurrentSlot,
 		DepositsTotal,
 		WithdrawalsTotal,
+		DepositTokenSum,
+		WithdrawalTokenSum,
 	)
 }

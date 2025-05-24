@@ -60,6 +60,8 @@ func (w *Withdrawal) Load(ctx context.Context, db *gorm.DB) (bool, error) {
 }
 
 func (w *Withdrawal) Save(ctx context.Context, db *gorm.DB) error {
+	amount := w.TokenAmount.Int64()
 	monitoring.WithdrawalsTotal.WithLabelValues(w.VaultID, w.TokenID).Inc()
+	monitoring.WithdrawalTokenSum.WithLabelValues(w.VaultID, w.TokenID).Add(float64(amount))
 	return generic.Save(ctx, db, w)
 }

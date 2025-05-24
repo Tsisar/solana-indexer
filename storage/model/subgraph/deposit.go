@@ -54,6 +54,8 @@ func (d *Deposit) Load(ctx context.Context, db *gorm.DB) (bool, error) {
 }
 
 func (d *Deposit) Save(ctx context.Context, db *gorm.DB) error {
+	amount := d.TokenAmount.Int64()
 	monitoring.DepositsTotal.WithLabelValues(d.VaultID, d.TokenID).Inc()
+	monitoring.DepositTokenSum.WithLabelValues(d.VaultID, d.TokenID).Add(float64(amount))
 	return generic.Save(ctx, db, d)
 }
