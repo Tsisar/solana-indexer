@@ -8,6 +8,7 @@ import (
 	"github.com/Tsisar/solana-indexer/core/config"
 	"github.com/Tsisar/solana-indexer/core/fetcher"
 	"github.com/Tsisar/solana-indexer/core/utils"
+	"github.com/Tsisar/solana-indexer/monitoring"
 	"github.com/Tsisar/solana-indexer/storage"
 	"github.com/Tsisar/solana-indexer/storage/model/core"
 	"github.com/gagliardetto/solana-go"
@@ -168,6 +169,7 @@ func fetch(ctx context.Context, db *storage.Gorm, program, signature string, str
 	if err := db.SaveTransaction(ctx, &transaction, program); err != nil {
 		return fmt.Errorf("[listener] failed to save transaction %s: %w", signature, err)
 	}
+	monitoring.ListenerCurrentSlot.Set(float64(txRes.Slot))
 
 	// Push the signature to the realtime parsing stream
 	select {

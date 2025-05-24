@@ -12,6 +12,13 @@ var (
 		},
 	)
 
+	ListenerCurrentSlot = prometheus.NewGauge(
+		prometheus.GaugeOpts{
+			Name: "indexer_listener_current_slot",
+			Help: "Current slot received by the WebSocket listener",
+		},
+	)
+
 	ParserCurrentSlot = prometheus.NewGauge(
 		prometheus.GaugeOpts{
 			Name: "indexer_parser_current_slot",
@@ -21,5 +28,9 @@ var (
 )
 
 func init() {
-	prometheus.MustRegister(FetcherCurrentSlot, ParserCurrentSlot)
+	prometheus.MustRegister(
+		FetcherCurrentSlot,
+		ParserCurrentSlot,
+		ListenerCurrentSlot,
+	)
 }
