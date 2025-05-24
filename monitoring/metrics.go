@@ -1,7 +1,11 @@
 package monitoring
 
 import (
+	"context"
+	"github.com/Tsisar/solana-indexer/storage/model/subgraph"
 	"github.com/prometheus/client_golang/prometheus"
+	"gorm.io/gorm"
+	"math/big"
 )
 
 var (
@@ -87,4 +91,48 @@ func init() {
 		TokenPrice,
 		TokenDecimals,
 	)
+}
+
+func Withdrawal(ctx context.Context, db *gorm.DB, withdraw subgraph.Withdrawal) {
+	token := subgraph.Token{ID: withdraw.TokenID}
+	ok, err := token.Load(ctx, db)
+	if err != nil || !ok {
+		return
+	}
+
+	// amount / 10^decimals using big.Float
+	amountFloat := new(big.Float).SetInt(withdraw.TokenAmount.Int)
+	tenPow := new(big.Int).Exp(big.NewInt(10), token.Decimals.Int, nil)
+	normalized := new(big.Float).Quo(amountFloat, new(big.Float).SetInt(tenPow))
+
+	f64, _ := normalized.Float64()
+
+	WithdrawalsTotal.WithLabelValues(withdraw.VaultID, withdraw.TokenID).Inc()
+	WithdrawalTokenSum.WithLabelValues(withdraw.VaultID, withdraw.TokenID).Add(f64)
+}
+
+func Deposit(ctx context.Context, db *gorm.DB, deposit subgraph.Deposit) {
+	token := subgraph.Token{ID: deposit.TokenID}
+	ok, err := token.Load(ctx, db)
+	if err != nil || !ok {
+		return
+	}
+
+	// amount / 10^decimals using big.Float
+	amountFloat := new(big.Float).SetInt(deposit.TokenAmount.Int)
+	tenPow := new(big.Int).Exp(big.NewInt(10), token.Decimals.Int, nil)
+	normalized := new(big.Float).Quo(amountFloat, new(big.Float).SetInt(tenPow))
+
+	f64, _ := normalized.Float64()
+
+	DepositsTotal.WithLabelValues(deposit.VaultID, deposit.TokenID).Inc()
+	DepositTokenSum.WithLabelValues(deposit.VaultID, deposit.TokenID).Add(f64)
+}
+
+func Token(t subgraph.Token) {
+	priceFloat, _ := t.CurrentPrice.Float64()
+	decimals, _ := t.Decimals.Float64()
+
+	TokenPrice.WithLabelValues(t.ID, t.Symbol, t.Name).Set(priceFloat)
+	TokenDecimals.WithLabelValues(t.ID).Set(decimals)
 }

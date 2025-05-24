@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/Tsisar/extended-log-go/log"
+	"github.com/Tsisar/solana-indexer/monitoring"
 	"github.com/Tsisar/solana-indexer/storage/model/subgraph"
 	"github.com/Tsisar/solana-indexer/subgraph/events"
 	"github.com/Tsisar/solana-indexer/subgraph/library/account"
@@ -104,6 +105,7 @@ func Deposit(ctx context.Context, db *gorm.DB, ev events.VaultDepositEvent, tran
 	if err := deposit.Save(ctx, db); err != nil {
 		return fmt.Errorf("[vault] failed to save deposit: %w", err)
 	}
+	monitoring.Deposit(ctx, db, deposit)
 
 	vault := subgraph.Vault{ID: ev.VaultKey.String()}
 	if _, err := vault.Load(ctx, db); err != nil {
@@ -221,6 +223,7 @@ func Withdraw(ctx context.Context, db *gorm.DB, ev events.VaultWithdrawlEvent, t
 	if err := withdrwal.Save(ctx, db); err != nil {
 		return fmt.Errorf("[vault] failed to save withdrawal: %w", err)
 	}
+	monitoring.Withdrawal(ctx, db, withdrwal)
 
 	vault := subgraph.Vault{ID: ev.VaultKey.String()}
 	if _, err := vault.Load(ctx, db); err != nil {
@@ -370,6 +373,7 @@ func UpdateCurrentSharePrice(ctx context.Context, db *gorm.DB, vaultId string, s
 	if err := t.Save(ctx, db); err != nil {
 		return fmt.Errorf("[vault] failed to save token: %w", err)
 	}
+	monitoring.Token(t)
 
 	return nil
 }
