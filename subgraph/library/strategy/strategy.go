@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/Tsisar/extended-log-go/log"
+	"github.com/Tsisar/solana-indexer/monitoring"
 	"github.com/Tsisar/solana-indexer/storage/model/subgraph"
 	"github.com/Tsisar/solana-indexer/subgraph/events"
 	"github.com/Tsisar/solana-indexer/subgraph/types"
@@ -255,6 +256,7 @@ func InitOrca(ctx context.Context, db *gorm.DB, ev events.OrcaInitEvent) error {
 	if err := tokenMint.Save(ctx, db); err != nil {
 		return fmt.Errorf("[strategy] failed to save token: %w", err)
 	}
+	monitoring.Token(tokenMint)
 
 	strategy.AssetID = &tokenMint.ID
 	if err := strategy.Save(ctx, db); err != nil {

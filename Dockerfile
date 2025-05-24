@@ -36,7 +36,7 @@ EXPOSE 9040
 
 # Default environment variables
 ENV METRICS_ENABLED="true" \
-    METRICS_PORT="9040" \
+    METRICS_PORT="8040" \
     SAVE_LOGS="false" \
     LOG_LEVEL="debug"
 
