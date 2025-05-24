@@ -7,6 +7,7 @@ import (
 	"github.com/Tsisar/extended-log-go/log"
 	"github.com/Tsisar/solana-indexer/core/config"
 	"github.com/Tsisar/solana-indexer/core/utils"
+	"github.com/Tsisar/solana-indexer/monitoring"
 	"github.com/Tsisar/solana-indexer/storage"
 	"github.com/Tsisar/solana-indexer/storage/model/core"
 	"github.com/gagliardetto/solana-go"
@@ -130,6 +131,7 @@ func fetchRawTransactions(ctx context.Context, db *storage.Gorm) error {
 			return fmt.Errorf("[fetcher] save transaction failed: %w", err)
 		}
 		log.Infof("[fetcher] Saved raw transaction: slot: %d tx: %s", txRes.Slot, sig)
+		monitoring.FetcherCurrentSlot.Set(float64(txRes.Slot))
 	}
 	return nil
 }

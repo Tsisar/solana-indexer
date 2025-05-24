@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"github.com/Tsisar/extended-log-go/log"
 	"github.com/Tsisar/solana-indexer/core/utils"
+	"github.com/Tsisar/solana-indexer/monitoring"
 	"github.com/Tsisar/solana-indexer/storage"
 	"github.com/Tsisar/solana-indexer/subgraph"
 	"github.com/gagliardetto/solana-go/rpc"
@@ -102,6 +103,7 @@ func parseTransaction(ctx context.Context, db *storage.Gorm, rawTx []byte, sig s
 	}
 
 	subgraph.MapMetadata(ctx, db, sig, tx.Slot, utils.BlockTime(tx.BlockTime))
+	monitoring.ParserCurrentSlot.Set(float64(tx.Slot))
 
 	return nil
 }
