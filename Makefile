@@ -71,18 +71,13 @@ build: format get
 
 # Build multi-platform Docker image (no push)
 image:
-	@echo "Building Docker image for multiple platforms (no push)..."
+	@echo "Building and pushing multi-platform Docker image..."
 	@docker buildx build \
 		--platform linux/amd64,linux/arm64 \
 		--build-arg TARGETARCH=$(TARGETARCH) \
 		--build-arg TARGETOS=$(TARGETOS) \
 		--tag $(REGISTRY)/$(APP):$(VERSION) \
-		--output=type=docker .
-
-# Push Docker image
-push:
-	@echo "Pushing Docker image to registry..."
-	@docker push $(REGISTRY)/$(APP):$(VERSION)
+		--push .
 
 # Clean artifacts
 clean:
@@ -91,5 +86,5 @@ clean:
 	@docker rmi $(REGISTRY)/$(APP):$(VERSION) || true
 
 # Full release pipeline
-release: clean test build image push
+release: clean test build image
 	@echo "Release $(VERSION) completed successfully"
