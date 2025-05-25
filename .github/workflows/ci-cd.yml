@@ -20,43 +20,29 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Extract latest Git tag or fallback to short SHA
-        id: git_tag
-        run: |
-          TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "untagged")
-          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: 1.21
 
       - name: Docker login
         run: echo "${{ secrets.DOCKER_PASSWORD }}" | docker login -u "${{ secrets.DOCKER_USERNAME }}" --password-stdin
 
-      - name: Set image tag based on branch
-        id: image_tag
+      - name: Build Docker image using Makefile
         run: |
-          RAW_TAG="${{ steps.git_tag.outputs.tag }}"
-          if [ "$RAW_TAG" = "untagged" ]; then
-            RAW_TAG=${GITHUB_SHA::7}
-          fi
+          make image
 
-          if [ "${{ github.ref_name }}" = "master" ]; then
-            echo "tag=$RAW_TAG" >> "$GITHUB_OUTPUT"
-          else
-            echo "tag=${RAW_TAG}-dev" >> "$GITHUB_OUTPUT"
-          fi
-
-      - name: Build and push multi-platform Docker image
+      - name: Push Docker image using Makefile
         run: |
-          IMAGE="intothefathom/solana-indexer.vaults"
-          TAG="${{ steps.image_tag.outputs.tag }}"
-          docker buildx build \
-            --platform linux/amd64,linux/arm64 \
-            -t $IMAGE:$TAG \
-            -t $IMAGE:latest \
-            --push .
+          make push
 
       - name: Sync Argo CD and wait for completion
         run: |
-          APP_NAME="solana-indexer"
-          IMAGE_TAG="${{ steps.image_tag.outputs.tag }}"
+          APP_NAME="${{ vars.ARGOCD_APP_NAME }}"
+          API_URL="${{ secrets.ARGOCD_API_URL }}"
+          IMAGE_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo dev)-$(git rev-parse --short HEAD)
+          [ "${{ github.ref_name }}" != "master" ] && IMAGE_TAG="$IMAGE_TAG-dev"
+
           MAX_RETRIES=3
           RETRY_DELAY=10
           RETRIES=0
@@ -68,15 +54,15 @@ jobs:
               argoproj/argocd:v2.6.15 \
               /bin/sh -c \
               "argocd app set $APP_NAME \
-              --server ${{ secrets.ARGOCD_API_URL }} \
+              --server $API_URL \
               --grpc-web \
               --parameter image.tag=$IMAGE_TAG && \
               argocd app wait $APP_NAME \
-              --server ${{ secrets.ARGOCD_API_URL }} \
+              --server $API_URL \
               --grpc-web \
               --operation && \
               argocd app sync $APP_NAME \
-              --server ${{ secrets.ARGOCD_API_URL }} \
+              --server $API_URL \
               --grpc-web \
               --timeout 180" && break
 
