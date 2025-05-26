@@ -3,8 +3,8 @@
 # ==============================
 
 # Target platform (override via `make TARGETOS=linux`)
-TARGETOS     ?= darwin # linux, windows, darwin
-TARGETARCH   ?= amd64  # amd64, arm64
+TARGETOS     ?= linux
+TARGETARCH   ?= amd64
 CGO_ENABLED  ?= 0
 
 # Application name and registry
