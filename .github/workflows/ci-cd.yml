@@ -28,9 +28,13 @@ jobs:
       - name: Docker login
         run: echo "${{ secrets.DOCKER_PASSWORD }}" | docker login -u "${{ secrets.DOCKER_USERNAME }}" --password-stdin
 
-      - name: Build and push Docker image using Makefile
+      - name: Build Docker image using Makefile
         run: |
           make image
+
+      - name: Push Docker image using Makefile
+        run: |
+          make push
 
       - name: Sync Argo CD and wait for completion
         run: |
