@@ -179,22 +179,32 @@ func AfterOrcaSwap(ctx context.Context, db *gorm.DB, ev events.OrcaAfterSwapEven
 		log.Debugf("[strategy] total allocation percent: %s", strategy.TotalAllocationPercent.String())
 	}
 
-	// Absolute PnL Calculation
-	// PnL = Total Current Assets - Total Allocated Capital
-	// PnL = totalAssets - strategy.CurrentDebt
-	profitOrLoss := totalAssets.Sub(&strategy.CurrentDebt)
-	strategy.ProfitOrLoss = utils.Val(profitOrLoss.ToBigDecimal())
-	log.Debugf("[strategy] profit or loss: %s", strategy.ProfitOrLoss.String())
+	// --- PnL Calculations ---
+	// Both totalAssets and currentDebt are in the same unit (the underlying asset),
+	// so we just need to scale them correctly before calculating PnL.
 
-	// PnL in Percentage (%) Calculation
-	// PnL % = (Calculated_PnL / Entity.currentDebt) * 100
-	if strategy.CurrentDebt.Sign() != 0 {
-		profitOrLossPercent := strategy.ProfitOrLoss.SafeDiv(strategy.CurrentDebt.ToBigDecimal()).Mul(&hundred)
+	// 1. Get the decimals for the underlying asset (e.g., 6 for USDC).
+	decimals := &strategy.UnderlyingDecimals
+
+	// 2. Scale the raw on-chain integer values to their real-world decimal representations.
+	scaledTotalAssets := utils.ToScaledBigDecimal(totalAssets, decimals)
+	scaledCurrentDebt := utils.ToScaledBigDecimal(&strategy.CurrentDebt, decimals)
+
+	// 3. Absolute PnL Calculation
+	// We subtract the scaled values to get a human-readable PnL.
+	profitOrLoss := scaledTotalAssets.Sub(scaledCurrentDebt)
+	strategy.ProfitOrLoss = utils.Val(profitOrLoss)
+	log.Debugf("[strategy] PnL: %s", strategy.ProfitOrLoss.String())
+
+	// 4. PnL in Percentage (%) Calculation
+	// We use the scaled PnL and scaled debt for the percentage.
+	if scaledCurrentDebt != nil && scaledCurrentDebt.Sign() != 0 {
+		profitOrLossPercent := strategy.ProfitOrLoss.SafeDiv(scaledCurrentDebt).Mul(&hundred)
 		strategy.ProfitOrLossPercent = utils.Val(profitOrLossPercent)
-		log.Debugf("[strategy] profit or loss percent: %s", strategy.ProfitOrLossPercent.String())
+		log.Debugf("[strategy] PnL (Percent): %s", strategy.ProfitOrLossPercent.String())
 	} else {
 		strategy.ProfitOrLossPercent.Zero()
-		log.Debugf("[strategy] current debt is zero, profit or loss percent is zero")
+		log.Debugf("[strategy] current debt is zero, PnL percent is zero")
 	}
 
 	if err := strategy.Save(ctx, db); err != nil {
