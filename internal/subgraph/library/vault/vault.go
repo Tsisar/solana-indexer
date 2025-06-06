@@ -463,6 +463,10 @@ func WithdrawalRequestFulfilled(ctx context.Context, db *gorm.DB, ev events.With
 		return fmt.Errorf("[vault] failed to update priority fee on vault: %w", err)
 	}
 
+	// Log the fulfillment for debugging PnL calculations
+	log.Debugf("[vault] Withdrawal request fulfilled - vault: %s, user: %s, amount: %s, index: %s", 
+		ev.Vault.String(), ev.User.String(), ev.Amount.String(), ev.Index.String())
+
 	return nil
 }
 
@@ -490,6 +494,10 @@ func WithdrawalRequestCanceled(ctx context.Context, db *gorm.DB, ev events.Withd
 	if err := updatePriorityFeeOnVault(ctx, db, ev.Vault.String(), withdrawalRequest.PriorityFees, "canceled"); err != nil {
 		return fmt.Errorf("[vault] failed to update priority fee on vault: %w", err)
 	}
+
+	// Log the cancellation for debugging PnL calculations
+	log.Debugf("[vault] Withdrawal request canceled - vault: %s, user: %s, index: %s", 
+		ev.Vault.String(), ev.User.String(), ev.Index.String())
 
 	return nil
 }

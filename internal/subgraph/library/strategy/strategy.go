@@ -139,18 +139,58 @@ func DeployFunds(ctx context.Context, db *gorm.DB, ev events.StrategyDeployFunds
 
 func FreeFunds(ctx context.Context, db *gorm.DB, ev events.StrategyFreeFundsEvent) error {
 	id := utils.GenerateId(ev.AccountKey.String(), ev.Timestamp.String())
-	freeFunds := subgraph.DeployFunds{ID: id}
+	freeFunds := subgraph.FreeFunds{ID: id}
 	if _, err := freeFunds.Load(ctx, db); err != nil {
-		return fmt.Errorf("[strategy] failed to load deploy funds: %w", err)
+		return fmt.Errorf("[strategy] failed to load free funds: %w", err)
 	}
 	freeFunds.StrategyID = ev.AccountKey.String()
 	freeFunds.Amount = ev.Amount
 	freeFunds.Timestamp = ev.Timestamp
 
 	if err := freeFunds.Save(ctx, db); err != nil {
-		return fmt.Errorf("[strategy] failed to save deploy funds: %w", err)
+		return fmt.Errorf("[strategy] failed to save free funds: %w", err)
 	}
+
+	// Update strategy to track total freed funds for PnL calculations
+	strategy := subgraph.Strategy{ID: ev.AccountKey.String()}
+	if ok, err := strategy.Load(ctx, db); err == nil && ok {
+		// This could be used to track cumulative freed funds if needed
+		// For now, the main fix is in AfterOrcaSwap function
+		log.Debugf("[strategy] FreeFunds event processed for strategy %s, amount: %s", 
+			strategy.ID, ev.Amount.String())
+	}
+
 	return nil
+}
+
+// validateWithdrawalRequestForPnL checks if a withdrawal request should be considered for PnL adjustment
+func validateWithdrawalRequestForPnL(request *subgraph.WithdrawalRequest, currentEventTime types.BigInt) bool {
+	if request == nil {
+		return false
+	}
+	
+	// Must be truly open/pending
+	if !request.Open || request.Status != "open" {
+		return false
+	}
+	
+	// Additional safety: only count recent withdrawal requests to avoid stale data
+	// Requests older than 1 hour might be stale due to processing delays
+	requestAge := currentEventTime.Sub(&request.Timestamp).Int64()
+	maxAgeSeconds := int64(3600) // 1 hour in seconds
+	
+	if requestAge > maxAgeSeconds {
+		log.Warnf("[strategy] Ignoring old withdrawal request (age: %d seconds): %s", 
+			requestAge, request.ID)
+		return false
+	}
+	
+	// Must have a valid amount
+	if request.Amount.Sign() <= 0 {
+		return false
+	}
+	
+	return true
 }
 
 func AfterOrcaSwap(ctx context.Context, db *gorm.DB, ev events.OrcaAfterSwapEvent) error {
@@ -181,25 +221,75 @@ func AfterOrcaSwap(ctx context.Context, db *gorm.DB, ev events.OrcaAfterSwapEven
 
 	// --- PnL Calculations ---
 	// Compare total assets (current value) with current debt (allocated capital)
-	// Frontend will handle decimal scaling, so we use raw values
-
+	// For sell swaps (free_funds), we need to adjust currentDebt to account for pending withdrawals
+	
 	// Convert raw BigInt values to BigDecimal for calculation
 	totalAssetsBD := totalAssets.ToBigDecimal()
 	currentDebtBD := strategy.CurrentDebt.ToBigDecimal()
+	
+	// Check if this is a sell swap (free_funds operation)
+	adjustedCurrentDebt := currentDebtBD
+	if !ev.Buy {
+		// This is a sell swap (free_funds), calculate pending withdrawal amount
+		// Get total pending withdrawal requests for this vault to estimate debt reduction
+		vault := subgraph.Vault{ID: ev.Vault.String()}
+		if _, err := vault.Load(ctx, db); err == nil {
+			// Calculate total pending withdrawal amount with more robust filtering
+			var totalPendingWithdrawals types.BigInt
+			totalPendingWithdrawals.Zero()
+			pendingCount := 0
+			
+			for _, request := range vault.WithdrawalRequests {
+				if validateWithdrawalRequestForPnL(request, ev.Timestamp) {
+					totalPendingWithdrawals = *totalPendingWithdrawals.Plus(&request.Amount)
+					pendingCount++
+				}
+			}
+			
+			// Only adjust currentDebt if we have valid pending withdrawals
+			if totalPendingWithdrawals.Sign() > 0 {
+				pendingWithdrawalsBD := totalPendingWithdrawals.ToBigDecimal()
+				
+				// Cap the adjustment to prevent over-correction
+				// Don't reduce debt by more than the current debt amount
+				maxReduction := currentDebtBD
+				if pendingWithdrawalsBD.Sub(maxReduction).Sign() > 0 {
+					pendingWithdrawalsBD = maxReduction
+					log.Warnf("[strategy] Capping pending withdrawal adjustment to currentDebt: %s", 
+						maxReduction.String())
+				}
+				
+				adjustedCurrentDebt = currentDebtBD.Sub(pendingWithdrawalsBD)
+				
+				// Ensure adjusted debt doesn't go negative
+				if adjustedCurrentDebt.Sign() < 0 {
+					adjustedCurrentDebt = new(types.BigDecimal)
+				}
+				
+				log.Debugf("[strategy] Adjusted currentDebt from %s to %s (pending withdrawals: %s, count: %d)", 
+					currentDebtBD.String(), adjustedCurrentDebt.String(), pendingWithdrawalsBD.String(), pendingCount)
+			} else {
+				log.Debugf("[strategy] No valid pending withdrawals found for debt adjustment")
+			}
+		} else {
+			log.Warnf("[strategy] Failed to load vault for pending withdrawal calculation: %v", err)
+		}
+	}
 
-	// Absolute PnL Calculation
-	profitOrLoss := totalAssetsBD.Sub(currentDebtBD)
+	// Absolute PnL Calculation using adjusted debt
+	profitOrLoss := totalAssetsBD.Sub(adjustedCurrentDebt)
 	strategy.ProfitOrLoss = utils.Val(profitOrLoss)
-	log.Debugf("[strategy] PnL: %s", strategy.ProfitOrLoss.String())
+	log.Debugf("[strategy] PnL: %s (totalAssets: %s, adjustedDebt: %s)", 
+		strategy.ProfitOrLoss.String(), totalAssetsBD.String(), adjustedCurrentDebt.String())
 
 	// PnL in Percentage (%) Calculation
-	if currentDebtBD != nil && currentDebtBD.Sign() != 0 {
-		profitOrLossPercent := strategy.ProfitOrLoss.SafeDiv(currentDebtBD).Mul(&hundred)
+	if adjustedCurrentDebt.Sign() != 0 {
+		profitOrLossPercent := strategy.ProfitOrLoss.SafeDiv(adjustedCurrentDebt).Mul(&hundred)
 		strategy.ProfitOrLossPercent = utils.Val(profitOrLossPercent)
 		log.Debugf("[strategy] PnL (Percent): %s", strategy.ProfitOrLossPercent.String())
 	} else {
 		strategy.ProfitOrLossPercent.Zero()
-		log.Debugf("[strategy] current debt is zero, PnL percent is zero")
+		log.Debugf("[strategy] adjusted debt is zero, PnL percent is zero")
 	}
 
 	if err := strategy.Save(ctx, db); err != nil {

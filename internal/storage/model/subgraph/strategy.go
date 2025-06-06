@@ -44,6 +44,7 @@ type Strategy struct {
 	UnderlyingMint          string                   `gorm:"column:underlying_mint"`             // Underlying token mint address
 	UnderlyingTokenAcc      string                   `gorm:"column:underlying_token_acc"`        // Underlying token account address
 	UnderlyingDecimals      types.BigInt             `gorm:"column:underlying_decimals"`         // Underlying token decimals
+	PendingFreedFunds       types.BigInt             `gorm:"column:pending_freed_funds"`         // Funds freed but not yet withdrawn (BigInt)
 }
 
 func (Strategy) TableName() string {
@@ -73,6 +74,7 @@ func (s *Strategy) Init() {
 	s.Removed = false
 	s.RemovedTimestamp.Zero()
 	s.LatestReportID = nil
+	s.PendingFreedFunds.Zero()
 }
 
 func (s *Strategy) GetID() string {
