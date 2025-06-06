@@ -39,6 +39,7 @@ func Deposit(ctx context.Context, db *gorm.DB, ev events.StrategyDepositEvent) e
 		return fmt.Errorf("[strategy] failed to load strategy: %w", err)
 	}
 	strategy.TotalAssets = ev.TotalAssets
+	strategy.CurrentDebt = ev.TotalAssets
 	if err := strategy.Save(ctx, db); err != nil {
 		return fmt.Errorf("[strategy] failed to save strategy: %w", err)
 	}
@@ -52,6 +53,7 @@ func Withdraw(ctx context.Context, db *gorm.DB, ev events.StrategyWithdrawEvent)
 		return fmt.Errorf("[strategy] failed to load strategy: %w", err)
 	}
 	strategy.TotalAssets = ev.TotalAssets
+	strategy.CurrentDebt = ev.TotalAssets
 	if err := strategy.Save(ctx, db); err != nil {
 		return fmt.Errorf("[strategy] failed to save strategy: %w", err)
 	}
