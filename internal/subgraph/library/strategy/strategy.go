@@ -180,26 +180,26 @@ func AfterOrcaSwap(ctx context.Context, db *gorm.DB, ev events.OrcaAfterSwapEven
 	}
 
 	// --- PnL Calculations ---
-	// Compare total assets (current value) with current debt (allocated capital)
+	// PnL = TotalInvested (current value) - TotalAssets (previous value / cost)
 	// Frontend will handle decimal scaling, so we use raw values
 
 	// Convert raw BigInt values to BigDecimal for calculation
 	totalAssetsBD := totalAssets.ToBigDecimal()
-	currentDebtBD := strategy.CurrentDebt.ToBigDecimal()
+	costBasisBD := ev.TotalAssets.ToBigDecimal()
 
 	// Absolute PnL Calculation
-	profitOrLoss := totalAssetsBD.Sub(currentDebtBD)
+	profitOrLoss := totalAssetsBD.Sub(costBasisBD)
 	strategy.ProfitOrLoss = utils.Val(profitOrLoss)
 	log.Debugf("[strategy] PnL: %s", strategy.ProfitOrLoss.String())
 
 	// PnL in Percentage (%) Calculation
-	if currentDebtBD != nil && currentDebtBD.Sign() != 0 {
-		profitOrLossPercent := strategy.ProfitOrLoss.SafeDiv(currentDebtBD).Mul(&hundred)
+	if costBasisBD != nil && costBasisBD.Sign() != 0 {
+		profitOrLossPercent := strategy.ProfitOrLoss.SafeDiv(costBasisBD).Mul(&hundred)
 		strategy.ProfitOrLossPercent = utils.Val(profitOrLossPercent)
 		log.Debugf("[strategy] PnL (Percent): %s", strategy.ProfitOrLossPercent.String())
 	} else {
 		strategy.ProfitOrLossPercent.Zero()
-		log.Debugf("[strategy] current debt is zero, PnL percent is zero")
+		log.Debugf("[strategy] cost basis is zero, PnL percent is zero")
 	}
 
 	if err := strategy.Save(ctx, db); err != nil {
