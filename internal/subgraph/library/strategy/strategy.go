@@ -12,6 +12,30 @@ import (
 	"gorm.io/gorm"
 )
 
+// updatePnL calculates and updates the PnL and PnL percentage for a strategy
+func updatePnL(strategy *subgraph.Strategy, currentValue *types.BigInt) {
+	hundred := types.NewBigDecimalFromFloat(100)
+	
+	// Convert raw BigInt values to BigDecimal for calculation
+	currentValueBD := currentValue.ToBigDecimal()
+	currentDebtBD := strategy.CurrentDebt.ToBigDecimal()
+
+	// Absolute PnL Calculation
+	profitOrLoss := currentValueBD.Sub(currentDebtBD)
+	strategy.ProfitOrLoss = utils.Val(profitOrLoss)
+	log.Debugf("[strategy] PnL: %s", strategy.ProfitOrLoss.String())
+
+	// PnL in Percentage (%) Calculation
+	if currentDebtBD != nil && currentDebtBD.Sign() != 0 {
+		profitOrLossPercent := strategy.ProfitOrLoss.SafeDiv(currentDebtBD).Mul(&hundred)
+		strategy.ProfitOrLossPercent = utils.Val(profitOrLossPercent)
+		log.Debugf("[strategy] PnL (Percent): %s", strategy.ProfitOrLossPercent.String())
+	} else {
+		strategy.ProfitOrLossPercent.Zero()
+		log.Debugf("[strategy] current debt is zero, PnL percent is zero")
+	}
+}
+
 func Init(ctx context.Context, db *gorm.DB, ev events.StrategyInitEvent) error {
 	strategy := subgraph.Strategy{ID: ev.AccountKey.String()}
 	if _, err := strategy.Load(ctx, db); err != nil {
@@ -40,6 +64,10 @@ func Deposit(ctx context.Context, db *gorm.DB, ev events.StrategyDepositEvent) e
 	}
 	strategy.TotalAssets = ev.TotalAssets
 	strategy.CurrentDebt = ev.TotalAssets
+	
+	// Update PnL after debt change
+	updatePnL(&strategy, &strategy.TotalAssets)
+	
 	if err := strategy.Save(ctx, db); err != nil {
 		return fmt.Errorf("[strategy] failed to save strategy: %w", err)
 	}
@@ -54,6 +82,10 @@ func Withdraw(ctx context.Context, db *gorm.DB, ev events.StrategyWithdrawEvent)
 	}
 	strategy.TotalAssets = ev.TotalAssets
 	strategy.CurrentDebt = ev.TotalAssets
+	
+	// Update PnL after debt change
+	updatePnL(&strategy, &strategy.TotalAssets)
+	
 	if err := strategy.Save(ctx, db); err != nil {
 		return fmt.Errorf("[strategy] failed to save strategy: %w", err)
 	}
@@ -181,28 +213,8 @@ func AfterOrcaSwap(ctx context.Context, db *gorm.DB, ev events.OrcaAfterSwapEven
 		log.Debugf("[strategy] total allocation percent: %s", strategy.TotalAllocationPercent.String())
 	}
 
-	// --- PnL Calculations ---
-	// Compare total assets (current value) with current debt (allocated capital)
-	// Frontend will handle decimal scaling, so we use raw values
-
-	// Convert raw BigInt values to BigDecimal for calculation
-	totalAssetsBD := totalAssets.ToBigDecimal()
-	currentDebtBD := strategy.CurrentDebt.ToBigDecimal()
-
-	// Absolute PnL Calculation
-	profitOrLoss := totalAssetsBD.Sub(currentDebtBD)
-	strategy.ProfitOrLoss = utils.Val(profitOrLoss)
-	log.Debugf("[strategy] PnL: %s", strategy.ProfitOrLoss.String())
-
-	// PnL in Percentage (%) Calculation
-	if currentDebtBD != nil && currentDebtBD.Sign() != 0 {
-		profitOrLossPercent := strategy.ProfitOrLoss.SafeDiv(currentDebtBD).Mul(&hundred)
-		strategy.ProfitOrLossPercent = utils.Val(profitOrLossPercent)
-		log.Debugf("[strategy] PnL (Percent): %s", strategy.ProfitOrLossPercent.String())
-	} else {
-		strategy.ProfitOrLossPercent.Zero()
-		log.Debugf("[strategy] current debt is zero, PnL percent is zero")
-	}
+	// Update PnL using total invested value
+	updatePnL(&strategy, totalAssets)
 
 	if err := strategy.Save(ctx, db); err != nil {
 		return fmt.Errorf("[strategy] failed to save strategy: %w", err)
