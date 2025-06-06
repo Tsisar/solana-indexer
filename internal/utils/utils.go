@@ -103,6 +103,28 @@ func Val[T any](v *T) T {
 	return zero
 }
 
+// ToScaledBigDecimal converts a BigInt, which represents a raw on-chain amount,
+// to a BigDecimal that represents the human-readable value, by dividing by 10^decimals.
+func ToScaledBigDecimal(val *types.BigInt, decimals *types.BigInt) *types.BigDecimal {
+	if val == nil || val.Int == nil {
+		return &types.BigDecimal{Float: nil}
+	}
+
+	// Default to 0 decimals if not provided, so no scaling happens.
+	if decimals == nil || decimals.Int == nil || decimals.Int.Sign() == 0 {
+		return val.ToBigDecimal()
+	}
+
+	divisorInt := new(big.Int).Exp(big.NewInt(10), decimals.Int, nil)
+	divisorBD := (&types.BigInt{Int: divisorInt}).ToBigDecimal()
+
+	if divisorBD == nil || divisorBD.Sign() == 0 {
+		return val.ToBigDecimal()
+	}
+
+	return val.ToBigDecimal().SafeDiv(divisorBD)
+}
+
 func Contains(slice []string, value string) bool {
 	for _, item := range slice {
 		if item == value {
