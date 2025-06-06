@@ -154,7 +154,7 @@ func FreeFunds(ctx context.Context, db *gorm.DB, ev events.StrategyFreeFundsEven
 }
 
 func AfterOrcaSwap(ctx context.Context, db *gorm.DB, ev events.OrcaAfterSwapEvent) error {
-	totalAssets := ev.IdleUnderlying.Plus(&ev.TotalInvested)
+	totalAssets := &ev.TotalInvested
 	vaultTotalAllocation, err := getTotalAllocationAfterAfterOrcaSwap(ctx, db, ev, totalAssets)
 	if err != nil {
 		return fmt.Errorf("[strategy] failed to get total allocation after orca swap: %w", err)
@@ -180,26 +180,21 @@ func AfterOrcaSwap(ctx context.Context, db *gorm.DB, ev events.OrcaAfterSwapEven
 	}
 
 	// --- PnL Calculations ---
-	// Both totalAssets and currentDebt are in the same unit (the underlying asset),
-	// so we just need to scale them correctly before calculating PnL.
+	// Compare total assets (current value) with current debt (allocated capital)
+	// Frontend will handle decimal scaling, so we use raw values
 
-	// 1. Get the decimals for the underlying asset (e.g., 6 for USDC).
-	decimals := &strategy.UnderlyingDecimals
+	// Convert raw BigInt values to BigDecimal for calculation
+	totalAssetsBD := totalAssets.ToBigDecimal()
+	currentDebtBD := strategy.CurrentDebt.ToBigDecimal()
 
-	// 2. Scale the raw on-chain integer values to their real-world decimal representations.
-	scaledTotalAssets := utils.ToScaledBigDecimal(totalAssets, decimals)
-	scaledCurrentDebt := utils.ToScaledBigDecimal(&strategy.CurrentDebt, decimals)
-
-	// 3. Absolute PnL Calculation
-	// We subtract the scaled values to get a human-readable PnL.
-	profitOrLoss := scaledTotalAssets.Sub(scaledCurrentDebt)
+	// Absolute PnL Calculation
+	profitOrLoss := totalAssetsBD.Sub(currentDebtBD)
 	strategy.ProfitOrLoss = utils.Val(profitOrLoss)
 	log.Debugf("[strategy] PnL: %s", strategy.ProfitOrLoss.String())
 
-	// 4. PnL in Percentage (%) Calculation
-	// We use the scaled PnL and scaled debt for the percentage.
-	if scaledCurrentDebt != nil && scaledCurrentDebt.Sign() != 0 {
-		profitOrLossPercent := strategy.ProfitOrLoss.SafeDiv(scaledCurrentDebt).Mul(&hundred)
+	// PnL in Percentage (%) Calculation
+	if currentDebtBD != nil && currentDebtBD.Sign() != 0 {
+		profitOrLossPercent := strategy.ProfitOrLoss.SafeDiv(currentDebtBD).Mul(&hundred)
 		strategy.ProfitOrLossPercent = utils.Val(profitOrLossPercent)
 		log.Debugf("[strategy] PnL (Percent): %s", strategy.ProfitOrLossPercent.String())
 	} else {
