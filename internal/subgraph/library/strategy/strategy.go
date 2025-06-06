@@ -139,16 +139,16 @@ func DeployFunds(ctx context.Context, db *gorm.DB, ev events.StrategyDeployFunds
 
 func FreeFunds(ctx context.Context, db *gorm.DB, ev events.StrategyFreeFundsEvent) error {
 	id := utils.GenerateId(ev.AccountKey.String(), ev.Timestamp.String())
-	freeFunds := subgraph.DeployFunds{ID: id}
+	freeFunds := subgraph.FreeFunds{ID: id}
 	if _, err := freeFunds.Load(ctx, db); err != nil {
-		return fmt.Errorf("[strategy] failed to load deploy funds: %w", err)
+		return fmt.Errorf("[strategy] failed to load free funds: %w", err)
 	}
 	freeFunds.StrategyID = ev.AccountKey.String()
 	freeFunds.Amount = ev.Amount
 	freeFunds.Timestamp = ev.Timestamp
 
 	if err := freeFunds.Save(ctx, db); err != nil {
-		return fmt.Errorf("[strategy] failed to save deploy funds: %w", err)
+		return fmt.Errorf("[strategy] failed to save free funds: %w", err)
 	}
 	return nil
 }
