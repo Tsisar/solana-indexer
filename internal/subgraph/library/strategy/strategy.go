@@ -154,7 +154,7 @@ func FreeFunds(ctx context.Context, db *gorm.DB, ev events.StrategyFreeFundsEven
 }
 
 func AfterOrcaSwap(ctx context.Context, db *gorm.DB, ev events.OrcaAfterSwapEvent) error {
-	totalAssets := &ev.TotalInvested
+	totalAssets := ev.IdleUnderlying.Plus(&ev.TotalInvested)
 	vaultTotalAllocation, err := getTotalAllocationAfterAfterOrcaSwap(ctx, db, ev, totalAssets)
 	if err != nil {
 		return fmt.Errorf("[strategy] failed to get total allocation after orca swap: %w", err)
