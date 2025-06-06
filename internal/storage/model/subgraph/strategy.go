@@ -14,6 +14,7 @@ type Strategy struct {
 	StrategyType            string                   `gorm:"column:strategy_type"`               // Strategy type
 	Amount                  types.BigInt             `gorm:"column:amount"`                      // Token this Strategy will accrue (BigInt)
 	TotalAssets             types.BigInt             `gorm:"column:total_assets"`                // Total amount of assets deposited in strategies (BigInt)
+	TotalInvested           types.BigInt             `gorm:"column:total_invested"`              // Total invested amount (BigInt)
 	DepositLimit            types.BigInt             `gorm:"column:deposit_limit"`               // The maximum amount of tokens (BigInt)
 	DepositPeriodEnds       types.BigInt             `gorm:"column:deposit_period_ends"`         // Deposit period ends (BigInt)
 	LockPeriodEnds          types.BigInt             `gorm:"column:lock_period_ends"`            // Lock period ends (BigInt)
@@ -56,6 +57,7 @@ func (s *Strategy) Init() {
 
 	s.Amount.Zero()
 	s.TotalAssets.Zero()
+	s.TotalInvested.Zero()
 	s.DepositLimit.Zero()
 	s.DepositPeriodEnds.Zero()
 	s.LockPeriodEnds.Zero()

@@ -65,8 +65,8 @@ func Deposit(ctx context.Context, db *gorm.DB, ev events.StrategyDepositEvent) e
 	strategy.TotalAssets = ev.TotalAssets
 	strategy.CurrentDebt = ev.TotalAssets
 	
-	// Update PnL after debt change
-	updatePnL(&strategy, &strategy.TotalAssets)
+	// Update PnL using existing TotalInvested value and new CurrentDebt
+	updatePnL(&strategy, &strategy.TotalInvested)
 	
 	if err := strategy.Save(ctx, db); err != nil {
 		return fmt.Errorf("[strategy] failed to save strategy: %w", err)
@@ -83,8 +83,8 @@ func Withdraw(ctx context.Context, db *gorm.DB, ev events.StrategyWithdrawEvent)
 	strategy.TotalAssets = ev.TotalAssets
 	strategy.CurrentDebt = ev.TotalAssets
 	
-	// Update PnL after debt change
-	updatePnL(&strategy, &strategy.TotalAssets)
+	// Update PnL using existing TotalInvested value and new CurrentDebt
+	updatePnL(&strategy, &strategy.TotalInvested)
 	
 	if err := strategy.Save(ctx, db); err != nil {
 		return fmt.Errorf("[strategy] failed to save strategy: %w", err)
@@ -213,8 +213,9 @@ func AfterOrcaSwap(ctx context.Context, db *gorm.DB, ev events.OrcaAfterSwapEven
 		log.Debugf("[strategy] total allocation percent: %s", strategy.TotalAllocationPercent.String())
 	}
 
-	// Update PnL using total invested value
-	updatePnL(&strategy, totalAssets)
+	// Update TotalInvested and calculate PnL using fresh TotalInvested value
+	strategy.TotalInvested = ev.TotalInvested
+	updatePnL(&strategy, &strategy.TotalInvested)
 
 	if err := strategy.Save(ctx, db); err != nil {
 		return fmt.Errorf("[strategy] failed to save strategy: %w", err)
