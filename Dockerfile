@@ -34,7 +34,7 @@ WORKDIR /root/
 # Copy compiled binary
 COPY --from=builder /indexer .
 
-EXPOSE 9040
+EXPOSE 8040
 
 ENV METRICS_ENABLED="true" \
     METRICS_PORT="8040" \

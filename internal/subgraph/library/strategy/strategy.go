@@ -10,7 +10,6 @@ import (
 	"github.com/Tsisar/solana-indexer/internal/subgraph/types"
 	"github.com/Tsisar/solana-indexer/internal/utils"
 	"gorm.io/gorm"
-	"math/big"
 )
 
 func Init(ctx context.Context, db *gorm.DB, ev events.StrategyInitEvent) error {
