@@ -172,7 +172,7 @@ func AfterOrcaSwap(ctx context.Context, db *gorm.DB, ev events.OrcaAfterSwapEven
 	}
 	hundred := types.NewBigDecimalFromFloat(100)
 
-	strategy.TotalAllocation = utils.Val(ev.TotalAssets.ToBigDecimal())
+	strategy.TotalAllocation = utils.Val(totalAssets.ToBigDecimal())
 	log.Debugf("[strategy] total allocation: %s", strategy.TotalAllocation.String())
 
 	if vaultTotalAllocation != nil && vaultTotalAllocation.Sign() != 0 {
@@ -180,26 +180,22 @@ func AfterOrcaSwap(ctx context.Context, db *gorm.DB, ev events.OrcaAfterSwapEven
 		log.Debugf("[strategy] total allocation percent: %s", strategy.TotalAllocationPercent.String())
 	}
 
-	if ev.Buy {
-		strategy.EffectiveInvestedAmount = utils.Val(strategy.EffectiveInvestedAmount.Plus(&ev.Amount))
-	} else {
-		totalAssets = &ev.TotalInvested
-		tokensSold := ev.AssetBalanceBefore.Sub(&ev.AssetBalanceAfter)
-		costBasisForSale := &types.BigInt{Int: big.NewInt(0)}
-
-		if ev.AssetBalanceAfter.Sign() != 0 {
-			mul := strategy.EffectiveInvestedAmount.Mul(tokensSold)
-			costBasisForSale = mul.Div(&ev.AssetBalanceBefore)
-		}
-
-		strategy.EffectiveInvestedAmount = utils.Val(strategy.EffectiveInvestedAmount.Sub(costBasisForSale))
-	}
-	strategy.ProfitOrLoss = utils.Val(totalAssets.Sub(&strategy.EffectiveInvestedAmount).ToBigDecimal())
+	// Absolute PnL Calculation
+	// PnL = Total Current Assets - Total Allocated Capital
+	// PnL = totalAssets - strategy.CurrentDebt
+	profitOrLoss := totalAssets.Sub(&strategy.CurrentDebt)
+	strategy.ProfitOrLoss = utils.Val(profitOrLoss.ToBigDecimal())
 	log.Debugf("[strategy] profit or loss: %s", strategy.ProfitOrLoss.String())
 
-	if strategy.EffectiveInvestedAmount.Sign() != 0 {
-		strategy.ProfitOrLossPercent = utils.Val(strategy.ProfitOrLoss.SafeDiv(strategy.EffectiveInvestedAmount.ToBigDecimal()).Mul(&hundred))
+	// PnL in Percentage (%) Calculation
+	// PnL % = (Calculated_PnL / Entity.currentDebt) * 100
+	if strategy.CurrentDebt.Sign() != 0 {
+		profitOrLossPercent := strategy.ProfitOrLoss.SafeDiv(strategy.CurrentDebt.ToBigDecimal()).Mul(&hundred)
+		strategy.ProfitOrLossPercent = utils.Val(profitOrLossPercent)
 		log.Debugf("[strategy] profit or loss percent: %s", strategy.ProfitOrLossPercent.String())
+	} else {
+		strategy.ProfitOrLossPercent.Zero()
+		log.Debugf("[strategy] current debt is zero, profit or loss percent is zero")
 	}
 
 	if err := strategy.Save(ctx, db); err != nil {
