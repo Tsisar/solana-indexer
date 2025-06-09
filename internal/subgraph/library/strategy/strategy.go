@@ -10,7 +10,6 @@ import (
 	"github.com/Tsisar/solana-indexer/internal/subgraph/types"
 	"github.com/Tsisar/solana-indexer/internal/utils"
 	"gorm.io/gorm"
-	"math/big"
 )
 
 func Init(ctx context.Context, db *gorm.DB, ev events.StrategyInitEvent) error {
@@ -140,16 +139,16 @@ func DeployFunds(ctx context.Context, db *gorm.DB, ev events.StrategyDeployFunds
 
 func FreeFunds(ctx context.Context, db *gorm.DB, ev events.StrategyFreeFundsEvent) error {
 	id := utils.GenerateId(ev.AccountKey.String(), ev.Timestamp.String())
-	freeFunds := subgraph.DeployFunds{ID: id}
+	freeFunds := subgraph.FreeFunds{ID: id}
 	if _, err := freeFunds.Load(ctx, db); err != nil {
-		return fmt.Errorf("[strategy] failed to load deploy funds: %w", err)
+		return fmt.Errorf("[strategy] failed to load free funds: %w", err)
 	}
 	freeFunds.StrategyID = ev.AccountKey.String()
 	freeFunds.Amount = ev.Amount
 	freeFunds.Timestamp = ev.Timestamp
 
 	if err := freeFunds.Save(ctx, db); err != nil {
-		return fmt.Errorf("[strategy] failed to save deploy funds: %w", err)
+		return fmt.Errorf("[strategy] failed to save free funds: %w", err)
 	}
 	return nil
 }
@@ -172,7 +171,7 @@ func AfterOrcaSwap(ctx context.Context, db *gorm.DB, ev events.OrcaAfterSwapEven
 	}
 	hundred := types.NewBigDecimalFromFloat(100)
 
-	strategy.TotalAllocation = utils.Val(ev.TotalAssets.ToBigDecimal())
+	strategy.TotalAllocation = utils.Val(totalAssets.ToBigDecimal())
 	log.Debugf("[strategy] total allocation: %s", strategy.TotalAllocation.String())
 
 	if vaultTotalAllocation != nil && vaultTotalAllocation.Sign() != 0 {
@@ -180,26 +179,27 @@ func AfterOrcaSwap(ctx context.Context, db *gorm.DB, ev events.OrcaAfterSwapEven
 		log.Debugf("[strategy] total allocation percent: %s", strategy.TotalAllocationPercent.String())
 	}
 
-	if ev.Buy {
-		strategy.EffectiveInvestedAmount = utils.Val(strategy.EffectiveInvestedAmount.Plus(&ev.Amount))
+	// --- PnL Calculations ---
+	// PnL = TotalInvested (current value) - TotalAssets (previous value / cost)
+	// Frontend will handle decimal scaling, so we use raw values
+
+	// Convert raw BigInt values to BigDecimal for calculation
+	totalAssetsBD := totalAssets.ToBigDecimal()
+	costBasisBD := ev.TotalAssets.ToBigDecimal()
+
+	// Absolute PnL Calculation
+	profitOrLoss := totalAssetsBD.Sub(costBasisBD)
+	strategy.ProfitOrLoss = utils.Val(profitOrLoss)
+	log.Debugf("[strategy] PnL: %s", strategy.ProfitOrLoss.String())
+
+	// PnL in Percentage (%) Calculation
+	if costBasisBD != nil && costBasisBD.Sign() != 0 {
+		profitOrLossPercent := strategy.ProfitOrLoss.SafeDiv(costBasisBD).Mul(&hundred)
+		strategy.ProfitOrLossPercent = utils.Val(profitOrLossPercent)
+		log.Debugf("[strategy] PnL (Percent): %s", strategy.ProfitOrLossPercent.String())
 	} else {
-		totalAssets = &ev.TotalInvested
-		tokensSold := ev.AssetBalanceBefore.Sub(&ev.AssetBalanceAfter)
-		costBasisForSale := &types.BigInt{Int: big.NewInt(0)}
-
-		if ev.AssetBalanceAfter.Sign() != 0 {
-			mul := strategy.EffectiveInvestedAmount.Mul(tokensSold)
-			costBasisForSale = mul.Div(&ev.AssetBalanceBefore)
-		}
-
-		strategy.EffectiveInvestedAmount = utils.Val(strategy.EffectiveInvestedAmount.Sub(costBasisForSale))
-	}
-	strategy.ProfitOrLoss = utils.Val(totalAssets.Sub(&strategy.EffectiveInvestedAmount).ToBigDecimal())
-	log.Debugf("[strategy] profit or loss: %s", strategy.ProfitOrLoss.String())
-
-	if strategy.EffectiveInvestedAmount.Sign() != 0 {
-		strategy.ProfitOrLossPercent = utils.Val(strategy.ProfitOrLoss.SafeDiv(strategy.EffectiveInvestedAmount.ToBigDecimal()).Mul(&hundred))
-		log.Debugf("[strategy] profit or loss percent: %s", strategy.ProfitOrLossPercent.String())
+		strategy.ProfitOrLossPercent.Zero()
+		log.Debugf("[strategy] cost basis is zero, PnL percent is zero")
 	}
 
 	if err := strategy.Save(ctx, db); err != nil {
