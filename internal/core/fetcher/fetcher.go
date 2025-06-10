@@ -20,8 +20,8 @@ var client = rpc.New(config.App.RPCEndpoint) // RPC client used for querying the
 // 1. Fetch historical signatures,
 // 2. Fetch full transaction JSONs,
 // 3. Parse saved transactions.
-func Start(ctx context.Context, db *storage.Gorm, resume bool, done chan struct{}) error {
-	defer close(done) // ensure the signal is sent even on error
+func Start(ctx context.Context, db *storage.Gorm, resume bool, done func()) error {
+	defer done() // Defer the completion callback to signal that fetching is done
 
 	if err := fetchHistoricalSignatures(ctx, db, resume); err != nil {
 		return fmt.Errorf("[fetcher] failed to fetch historical signatures: %w", err)
@@ -29,6 +29,7 @@ func Start(ctx context.Context, db *storage.Gorm, resume bool, done chan struct{
 	if err := fetchRawTransactions(ctx, db); err != nil {
 		return fmt.Errorf("[fetcher] failed to fetch full transactions: %w", err)
 	}
+
 	return nil
 }
 
@@ -67,17 +68,20 @@ func fetchHistoricalSignaturesForAddress(ctx context.Context, db *storage.Gorm, 
 	publicKey := solana.MustPublicKeyFromBase58(address)
 	var before solana.Signature
 	var until solana.Signature
-	var result []*rpc.TransactionSignature
 
 	if resume {
-		if lastSigStr, err := db.GetLatestSavedSignature(ctx, address); err != nil {
-			log.Errorf("[fetcher] get last saved signature failed: %v", err)
-			return nil, err
-		} else if lastSigStr != "" {
-			until = solana.MustSignatureFromBase58(lastSigStr)
-			log.Infof("[fetcher] Using last saved signature %s as lower bound for program %s", lastSigStr, address)
+		var err error
+		until, err = db.GetLatestSavedSignature(ctx, address)
+		if err != nil {
+			return nil, fmt.Errorf("[fetcher] get last saved signature failed: %w", err)
 		}
 	}
+
+	return GetSignaturesForRange(ctx, publicKey, before, until)
+}
+
+func GetSignaturesForRange(ctx context.Context, publicKey solana.PublicKey, before, until solana.Signature) ([]*rpc.TransactionSignature, error) {
+	var result []*rpc.TransactionSignature
 
 	for {
 		log.Debugf("[fetcher] Fetching signatures from %s to %s", before, until)

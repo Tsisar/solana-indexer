@@ -6,7 +6,6 @@ import (
 	"github.com/Tsisar/solana-indexer/internal/config"
 	"github.com/Tsisar/solana-indexer/internal/storage/model/core"
 	"github.com/Tsisar/solana-indexer/internal/storage/model/subgraph"
-	"gorm.io/gorm/clause"
 
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
@@ -51,24 +50,14 @@ func InitGorm() (*Gorm, error) {
 
 // InitCoreModels runs migrations for the core models used in the indexer,
 // sets initial health status, and stores configured program addresses in the database.
-func InitCoreModels(ctx context.Context, db *Gorm, resume bool) error {
+func InitCoreModels(ctx context.Context, db *Gorm) error {
 	if err := db.DB.AutoMigrate(
 		&core.Transaction{},
 		&core.Program{},
 		&core.Event{},
-		&core.IndexerHealth{},
+		&core.Status{},
 	); err != nil {
 		return fmt.Errorf("migration failed: %w", err)
-	}
-
-	if !resume {
-		if err := truncateEvents(db.DB); err != nil {
-			return fmt.Errorf("failed to truncate events: %w", err)
-		}
-	}
-
-	if err := db.SetHealth(ctx, "unknown", "Just started"); err != nil {
-		return fmt.Errorf("failed to set initial health status: %v", err)
 	}
 
 	for _, program := range config.App.Programs {
@@ -79,23 +68,9 @@ func InitCoreModels(ctx context.Context, db *Gorm, resume bool) error {
 	return nil
 }
 
-func truncateEvents(db *gorm.DB) error {
-	tables := []string{
-		"core.events",
-	}
-
-	for _, table := range tables {
-		if err := db.Exec(fmt.Sprintf("TRUNCATE TABLE %s CASCADE;", table)).Error; err != nil {
-			return fmt.Errorf("failed to truncate %s: %w", table, err)
-		}
-	}
-
-	return nil
-}
-
 // InitSubgraphModels runs migrations for subgraph-specific models.
 // It also creates and validates the `latest_report_id` foreign key.
-func InitSubgraphModels(ctx context.Context, db *Gorm, resume bool) error {
+func InitSubgraphModels(db *Gorm) error {
 	if err := db.DB.AutoMigrate(
 		&subgraph.Meta{},
 		&subgraph.BlockInfo{},
@@ -128,19 +103,28 @@ func InitSubgraphModels(ctx context.Context, db *Gorm, resume bool) error {
 		return fmt.Errorf("migration failed: %w", err)
 	}
 
-	if !resume {
-		if err := truncateSubgraphTables(db.DB); err != nil {
-			return fmt.Errorf("failed to truncate subgraph tables: %w", err)
-		}
-	}
-
 	if err := migrateWithLatestReport(db.DB); err != nil {
 		return fmt.Errorf("migration latest_report_id failed: %w", err)
 	}
+
 	return nil
 }
 
-func truncateSubgraphTables(db *gorm.DB) error {
+func TruncateEvents(db *gorm.DB) error {
+	tables := []string{
+		"core.events",
+	}
+
+	for _, table := range tables {
+		if err := db.Exec(fmt.Sprintf("TRUNCATE TABLE %s CASCADE;", table)).Error; err != nil {
+			return fmt.Errorf("failed to truncate %s: %w", table, err)
+		}
+	}
+
+	return nil
+}
+
+func TruncateSubgraphTables(db *gorm.DB) error {
 	tables := []string{
 		"_meta",
 		"_block_info",
@@ -212,25 +196,4 @@ func (g *Gorm) Close() error {
 		return fmt.Errorf("failed to get sql.DB: %w", err)
 	}
 	return sqlDB.Close()
-}
-
-// SetHealth updates the indexer health status (upsert by primary key id = 1).
-func (g *Gorm) SetHealth(ctx context.Context, status, reason string) error {
-	return g.DB.WithContext(ctx).Clauses(clause.OnConflict{
-		Columns:   []clause.Column{{Name: "id"}},
-		DoUpdates: clause.AssignmentColumns([]string{"status", "reason"}),
-	}).Create(&core.IndexerHealth{
-		ID:     1,
-		Status: status,
-		Reason: reason,
-	}).Error
-}
-
-// GetHealth retrieves the current indexer health status and reason.
-func (g *Gorm) GetHealth(ctx context.Context) (string, string, error) {
-	var health core.IndexerHealth
-	if err := g.DB.WithContext(ctx).First(&health, 1).Error; err != nil {
-		return "", "", err
-	}
-	return health.Status, health.Reason, nil
 }

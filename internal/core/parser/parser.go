@@ -15,31 +15,15 @@ import (
 // Start processes all unparsed transactions from the DB
 // and then continues parsing from the real-time stream.
 // Returns error if any transaction fails to parse.
-func Start(ctx context.Context, db *storage.Gorm, resume bool, done chan struct{}, in <-chan string) error {
-	// Load list of signatures that are not parsed
-	signatures, err := db.GetOrderedNoParsedSignatures(ctx, resume)
-	if err != nil {
-		return fmt.Errorf("[parser] failed to load signatures to parse: %w", err)
-	}
-	log.Infof("[parser] Found %d transactions to parse", len(signatures))
-
-	for _, sig := range signatures {
-		if err := parseOneTransaction(ctx, db, resume, sig); err != nil {
-			return fmt.Errorf("[parser] failed to parse transaction %s: %w", sig, err)
-		}
-	}
-	done <- struct{}{}
-
-	log.Infof("[parser] done with DB, switching to real-time stream...")
-
-	// Switch to processing incoming signatures from WebSocket stream
+func Start(ctx context.Context, db *storage.Gorm, in <-chan string) error {
+	log.Info("[parser] Starting transaction parser...")
 	for {
 		select {
 		case <-ctx.Done():
 			log.Debugf("[parser] context cancelled")
 			return nil
 		case sig := <-in:
-			if err := parseOneTransaction(ctx, db, true, sig); err != nil {
+			if err := parseOneTransaction(ctx, db, sig); err != nil {
 				return fmt.Errorf("[parser] failed to parse real-time transaction %s: %w", sig, err)
 			}
 		}
@@ -47,16 +31,14 @@ func Start(ctx context.Context, db *storage.Gorm, resume bool, done chan struct{
 }
 
 // parseOneTransaction coordinates parsing of one transaction from DB by signature.
-func parseOneTransaction(ctx context.Context, db *storage.Gorm, resume bool, sig string) error {
-	if resume {
-		parsed, err := db.IsParsed(ctx, sig)
-		if err != nil {
-			return fmt.Errorf("[parser] failed to check if %s is parsed: %w", sig, err)
-		}
-		if parsed {
-			log.Warnf("[parser] Transaction %s already parsed, skipping...", sig)
-			return nil
-		}
+func parseOneTransaction(ctx context.Context, db *storage.Gorm, sig string) error {
+	parsed, err := db.IsParsed(ctx, sig)
+	if err != nil {
+		return fmt.Errorf("[parser] failed to check if %s is parsed: %w", sig, err)
+	}
+	if parsed {
+		log.Warnf("[parser] Transaction %s already parsed, skipping...", sig)
+		return nil
 	}
 
 	// Retrieve raw transaction from DB

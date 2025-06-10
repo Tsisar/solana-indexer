@@ -15,6 +15,7 @@ import (
 	"github.com/gagliardetto/solana-go/rpc"
 	"github.com/gagliardetto/solana-go/rpc/ws"
 	"gorm.io/datatypes"
+	"sort"
 )
 
 // fetchTask represents a signature received from a WebSocket subscription
@@ -27,7 +28,7 @@ type fetchTask struct {
 // Start initializes WebSocket subscriptions and starts processing
 // of transactions fetched via WebSocket events.
 // It ensures all programs are subscribed before signaling readiness via wsReady.
-func Start(ctx context.Context, db *storage.Gorm, wsReady chan<- struct{}, realtimeStream chan<- string, errorChan chan<- error) error {
+func Start(ctx context.Context, db *storage.Gorm, receiveHandler func(signature string), readyHandler func(), errorHandler func(err error)) error {
 	// Connect to Solana WebSocket endpoint
 	wsClient, err := ws.Connect(ctx, config.App.RPCWSEndpoint)
 	if err != nil {
@@ -40,20 +41,18 @@ func Start(ctx context.Context, db *storage.Gorm, wsReady chan<- struct{}, realt
 
 	// Start transaction fetcher that processes incoming WebSocket events
 	go func() {
-		if err := fetchFromQueue(ctx, db, fetchQueue, realtimeStream); err != nil {
-			errorChan <- fmt.Errorf("[listener] fetcher error: %v", err)
+		if err := fetchFromQueue(ctx, db, fetchQueue, receiveHandler); err != nil {
+			errorHandler(fmt.Errorf("[listener] fetcher failed: %v", err))
 		}
 	}()
 
 	// Start WebSocket subscriptions for all configured programs
 	for _, program := range config.App.Programs {
-		publicKey := solana.MustPublicKeyFromBase58(program)
-
-		go func(pid solana.PublicKey) {
-			if err := watch(ctx, wsClient, pid, connected, fetchQueue); err != nil {
-				errorChan <- fmt.Errorf("[listener] watch failed for %s: %w", pid.String(), err)
+		go func() {
+			if err := watch(ctx, db, wsClient, program, connected, fetchQueue); err != nil {
+				errorHandler(fmt.Errorf("[listener] watch failed for %s: %v", program, err))
 			}
-		}(publicKey)
+		}()
 	}
 
 	// Wait until all programs are subscribed or an error occurs
@@ -66,7 +65,7 @@ func Start(ctx context.Context, db *storage.Gorm, wsReady chan<- struct{}, realt
 			readyCount++
 			if readyCount == programCount {
 				log.Info("[listener] All WebSocket subscriptions are active.")
-				wsReady <- struct{}{}
+				readyHandler()
 				return nil
 			}
 		}
@@ -75,15 +74,21 @@ func Start(ctx context.Context, db *storage.Gorm, wsReady chan<- struct{}, realt
 
 // watch subscribes to transaction logs for a single Solana program
 // and forwards the observed signatures to the fetchQueue.
-func watch(ctx context.Context, wsClient *ws.Client, publicKey solana.PublicKey, readySignal chan<- struct{}, fetchQueue chan<- fetchTask) error {
-	log.Infof("[listener] subscribing for %s...", publicKey.String())
+func watch(ctx context.Context, db *storage.Gorm, wsClient *ws.Client, program string, readySignal chan<- struct{}, fetchQueue chan<- fetchTask) error {
+	log.Infof("[listener] subscribing for %s...", program)
+	publicKey := solana.MustPublicKeyFromBase58(program)
 
 	sub, err := wsClient.LogsSubscribeMentions(publicKey, rpc.CommitmentConfirmed)
 	if err != nil {
-		return fmt.Errorf("[listener] logs subscribe failed for %s: %w", publicKey.String(), err)
+		return fmt.Errorf("[listener] logs subscribe failed for %s: %w", program, err)
 	}
 
-	log.Infof("[listener] subscribed to program %s", publicKey.String())
+	log.Infof("[listener] subscribed to program %s", program)
+
+	// Check if we are not skipped transactions
+	if err := checkSkipped(ctx, db, publicKey, fetchQueue); err != nil {
+		return fmt.Errorf("[listener] check skipped failed for %s: %w", program, err)
+	}
 	readySignal <- struct{}{}
 
 	for {
@@ -94,9 +99,8 @@ func watch(ctx context.Context, wsClient *ws.Client, publicKey solana.PublicKey,
 		default:
 			msg, err := sub.Recv(ctx)
 			if err != nil {
-				log.Errorf("[listener] WebSocket recv failed for %s: %v", publicKey.String(), err)
 				sub.Unsubscribe()
-				return fmt.Errorf("[listener] recv failed for %s: %w", publicKey.String(), err)
+				return fmt.Errorf("[listener] recv failed for %s: %w", program, err)
 			}
 
 			if msg == nil {
@@ -106,7 +110,7 @@ func watch(ctx context.Context, wsClient *ws.Client, publicKey solana.PublicKey,
 			// Push received signature into fetch queue for processing
 			fetchQueue <- fetchTask{
 				Signature: msg.Value.Signature.String(),
-				Program:   publicKey.String(),
+				Program:   program,
 			}
 		}
 	}
@@ -115,23 +119,22 @@ func watch(ctx context.Context, wsClient *ws.Client, publicKey solana.PublicKey,
 // fetchFromQueue processes transactions sequentially from the fetchQueue:
 // it ensures each transaction is fetched from RPC and stored in the DB,
 // and then its signature is passed to the parser stream.
-func fetchFromQueue(ctx context.Context, db *storage.Gorm, queue <-chan fetchTask, stream chan<- string) error {
+func fetchFromQueue(ctx context.Context, db *storage.Gorm, queue <-chan fetchTask, receiveHandler func(signature string)) error {
 	for {
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
 		case task := <-queue:
-			if err := fetch(ctx, db, task.Program, task.Signature, stream); err != nil {
+			if err := fetch(ctx, db, task.Program, task.Signature, receiveHandler); err != nil {
 				return fmt.Errorf("[listener] fetch failed for transaction %s: %w", task.Signature, err)
 			}
-			log.Infof("[listener] Fetched transaction %s for program %s", task.Signature, task.Program)
 		}
 	}
 }
 
 // fetch loads a transaction from the Solana RPC,
 // stores it in the database, and pushes the signature to the parsing stream.
-func fetch(ctx context.Context, db *storage.Gorm, program, signature string, stream chan<- string) error {
+func fetch(ctx context.Context, db *storage.Gorm, program, signature string, receiveHandler func(signature string)) error {
 	// Skip if already fetched
 	fetched, err := db.IsRawFetched(ctx, signature)
 	if err != nil {
@@ -169,13 +172,42 @@ func fetch(ctx context.Context, db *storage.Gorm, program, signature string, str
 	if err := db.SaveTransaction(ctx, &transaction, program); err != nil {
 		return fmt.Errorf("[listener] failed to save transaction %s: %w", signature, err)
 	}
+	log.Infof("[listener] Fetched transaction %s", signature)
 	monitoring.ListenerCurrentSlot.Set(float64(txRes.Slot))
+	receiveHandler(signature)
+	return nil
+}
 
-	// Push the signature to the realtime parsing stream
-	select {
-	case stream <- signature:
-		return nil
-	case <-ctx.Done():
+func checkSkipped(ctx context.Context, db *storage.Gorm, publicKey solana.PublicKey, fetchQueue chan<- fetchTask) error {
+	var before solana.Signature
+	until, err := db.GetLatestSavedSignature(ctx, publicKey.String())
+	if err != nil {
+		return fmt.Errorf("[listener] get last saved signature failed: %v", err)
+	}
+
+	sigs, err := fetcher.GetSignaturesForRange(ctx, publicKey, before, until)
+	if err != nil {
+		return fmt.Errorf("[listener] get signatures failed: %v", err)
+	}
+	log.Infof("[listener] Received %d signatures for program %s", len(sigs), publicKey.String())
+
+	if len(sigs) == 0 {
+		log.Infof("[listener] No signatures found for program %s", publicKey.String())
 		return nil
 	}
+
+	//Sort signatures by slot
+	sort.Slice(sigs, func(i, j int) bool {
+		return sigs[i].Slot < sigs[j].Slot
+	})
+
+	for _, sig := range sigs {
+		log.Debugf("[listener] Block %d, adding skipped signature %s to fetch queue", sig.Slot, sig.Signature.String())
+
+		fetchQueue <- fetchTask{
+			Signature: sig.Signature.String(),
+			Program:   publicKey.String(),
+		}
+	}
+	return nil
 }

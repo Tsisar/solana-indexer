@@ -12,6 +12,7 @@ import (
 )
 
 func Start(ctx context.Context, db *gorm.DB) error {
+	log.Info("[aggregator] Starting share price aggregator...")
 	ticker := time.NewTicker(1 * time.Hour)
 
 	if err := aggregateAndSaveSharePrice(ctx, db, "hour"); err != nil {
@@ -48,7 +49,7 @@ func aggregateAndSaveSharePrice(ctx context.Context, db *gorm.DB, interval strin
 	}
 
 	type rawRow struct {
-		VaultID    string            `gorm:"column:vault_id"`
+		VaultID    string           `gorm:"column:vault_id"`
 		Timestamp  int64            `gorm:"column:timestamp_sec"`
 		SharePrice types.BigDecimal `gorm:"column:share_price"`
 	}
