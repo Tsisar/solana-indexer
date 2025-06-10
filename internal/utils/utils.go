@@ -12,7 +12,7 @@ import (
 
 var msPerDay = big.NewInt(86_400_000) // 24*60*60*1000
 var daysPerYear = big.NewFloat(365.0)
-var attempts = 5 // TODO: make this configurable from application settings
+var attempts = 10 // TODO: make this configurable from application settings
 
 // Retry executes the provided function up to `attempts` times until it succeeds.
 // If all attempts fail, it returns an error.
