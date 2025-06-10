@@ -184,8 +184,8 @@ func idlTypeMap(name string, types []TypeDef) StructTy {
 
 func main() {
 	idlDir := "idl"
-	eventsDir := "core/events"
-	mapingDir := "subgraph/maping"
+	eventsDir := "generator/core/events"
+	mapingDir := "generator/subgraph/maping"
 
 	allEvents, allEventToFunc := processIdlDirectory(idlDir, eventsDir, mapingDir)
 	generateEventRegistry(eventsDir, allEvents)
