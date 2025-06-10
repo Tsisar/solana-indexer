@@ -54,7 +54,6 @@ func LoadWithPreloads[T Identifiable](
 	}
 }
 
-// func Save[T any](ctx context.Context, db *gorm.DB, model T) error {
 func Save[T Identifiable](ctx context.Context, db *gorm.DB, model T) error {
 	return db.WithContext(ctx).
 		Clauses(clause.OnConflict{

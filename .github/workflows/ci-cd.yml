@@ -43,7 +43,7 @@ jobs:
           APP_NAME="${{ vars.ARGOCD_APP_NAME }}"
           API_URL="${{ secrets.ARGOCD_API_URL }}"
           IMAGE_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo dev)-$(git rev-parse --short HEAD)
-          [ "${{ github.ref_name }}" != "master" ] && IMAGE_TAG="$IMAGE_TAG-dev"
+          [ "${{ github.ref_name }}" != "master" ] && IMAGE_TAG="$IMAGE_TAG"
 
           MAX_RETRIES=3
           RETRY_DELAY=10
