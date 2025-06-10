@@ -24,15 +24,6 @@ func (g *Gorm) SaveEvent(ctx context.Context, ev core.Event) error {
 	return nil
 }
 
-// MarkMapped marks a specific event as "mapped" by setting the mapped flag to true,
-// identified by its transaction signature and event name.
-func (g *Gorm) MarkMapped(ctx context.Context, signature, eventName string) error {
-	return g.DB.WithContext(ctx).
-		Model(&core.Event{}).
-		Where("transaction_signature = ? AND name = ?", signature, eventName).
-		Update("mapped", true).Error
-}
-
 // LoadOrderedEvents returns all events sorted in canonical order:
 // by block_time, transaction_signature, and log_index.
 func (g *Gorm) LoadOrderedEvents(ctx context.Context) ([]core.Event, error) {

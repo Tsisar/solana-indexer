@@ -4,30 +4,42 @@ import (
 	"context"
 	"fmt"
 	"github.com/Tsisar/solana-indexer/internal/storage"
+	"github.com/Tsisar/solana-indexer/internal/storage/model/core"
 )
 
 // Check performs a full health check on the database.
 // It verifies both the sequence of transactions and the sequence of events.
 // If any issue is found, the health status is marked as "unhealthy".
 func Check(ctx context.Context, db *storage.Gorm) error {
+	status := core.Status{}
+	if _, err := status.Load(ctx, db.DB); err != nil {
+		return fmt.Errorf("failed to load status: %w", err)
+	}
+
 	// Validate transaction order and parse status
 	if err := checkTransactions(ctx, db); err != nil {
-		if err := db.SetHealth(ctx, "unhealthy", err.Error()); err != nil {
-			return fmt.Errorf("failed to set health status: %w", err)
+		msg := fmt.Sprintf("database health check failed: %s", err.Error())
+		status.ErrorMsg = msg
+		if err := status.Save(ctx, db.DB); err != nil {
+			return fmt.Errorf(msg)
 		}
 		return fmt.Errorf("database health check failed: %w", err)
 	}
 
 	// Validate event sequence (timestamp + logIndex)
 	if err := checkEvents(ctx, db); err != nil {
-		if err := db.SetHealth(ctx, "unhealthy", err.Error()); err != nil {
-			return fmt.Errorf("failed to set health status: %w", err)
+		msg := fmt.Sprintf("database health check failed: %s", err.Error())
+		status.ErrorMsg = msg
+		if err := status.Save(ctx, db.DB); err != nil {
+			return fmt.Errorf(msg)
 		}
 		return fmt.Errorf("database health check failed: %w", err)
 	}
 
+	status.ErrorMsg = "" // Clear any previous error message
+
 	// Set health to healthy if all checks passed
-	return db.SetHealth(ctx, "healthy", "")
+	return status.Save(ctx, db.DB)
 }
 
 // checkTransactions ensures that all parsed transactions are in proper slot order,

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"github.com/Tsisar/solana-indexer/internal/config"
 	"github.com/Tsisar/solana-indexer/internal/storage/model/core"
+	"github.com/gagliardetto/solana-go"
 	"gorm.io/datatypes"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
@@ -113,7 +114,7 @@ func (g *Gorm) IsReady(ctx context.Context) (bool, error) {
 
 // GetOrderedNoParsedSignatures returns signatures of transactions (optionally only unparsed)
 // that are associated with configured programs, ordered by block_time.
-func (g *Gorm) GetOrderedNoParsedSignatures(ctx context.Context, resume bool) ([]string, error) {
+func (g *Gorm) GetOrderedNoParsedSignatures(ctx context.Context) ([]string, error) {
 	addresses := config.App.Programs
 	var signatures []string
 
@@ -126,11 +127,8 @@ func (g *Gorm) GetOrderedNoParsedSignatures(ctx context.Context, resume bool) ([
 
 	args := []any{addresses}
 
-	if resume {
-		query += " AND t.parsed = false"
-	}
-
 	query += `
+		AND t.parsed = false
 		GROUP BY t.signature, t.block_time
 		ORDER BY t.block_time ASC`
 
@@ -170,7 +168,7 @@ func (g *Gorm) GetOrderedNoRawSignatures(ctx context.Context) ([]string, error) 
 }
 
 // GetLatestSavedSignature returns the latest saved signature (by block_time) for a given program ID.
-func (g *Gorm) GetLatestSavedSignature(ctx context.Context, programID string) (string, error) {
+func (g *Gorm) GetLatestSavedSignature(ctx context.Context, programID string) (solana.Signature, error) {
 	var signature string
 	query := `
 		SELECT t.signature
@@ -184,9 +182,13 @@ func (g *Gorm) GetLatestSavedSignature(ctx context.Context, programID string) (s
 		Raw(query, programID).
 		Scan(&signature).Error
 	if err != nil {
-		return "", fmt.Errorf("failed to fetch last saved signature: %w", err)
+		return solana.Signature{}, fmt.Errorf("failed to fetch last saved signature: %w", err)
 	}
-	return signature, nil
+	if signature != "" {
+		return solana.MustSignatureFromBase58(signature), nil
+	}
+
+	return solana.Signature{}, nil
 }
 
 // GetRawTransaction returns the raw JSON transaction bytes for a given signature.
@@ -202,4 +204,17 @@ func (g *Gorm) GetRawTransaction(ctx context.Context, signature string) ([]byte,
 		return nil, fmt.Errorf("failed to fetch transaction: %w", err)
 	}
 	return tx.JsonTx, nil
+}
+
+func MarkAllTransactionsUnparsed(ctx context.Context, db *gorm.DB) error {
+	result := db.WithContext(ctx).
+		Model(&core.Transaction{}).
+		Where("parsed = ?", true).
+		Update("parsed", false)
+
+	if result.Error != nil {
+		return fmt.Errorf("failed to mark transactions as unparsed: %w", result.Error)
+	}
+
+	return nil
 }
